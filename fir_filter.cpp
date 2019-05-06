@@ -33,17 +33,6 @@ void leerAudio(int *&buffer, SF_INFO &info, char nombre[]){
     sf_close(sf);
     
     printf("Read %d items\n",num_read);
-    
-    //Escribe los datos en filedata.out.
-    /*out = fopen("filedata.out","w");
-     for (int i = 0; i < num_read; i += channels)
-     {
-     for (int j = 0; j < channels; ++j){
-     fprintf(out,"%d ",buffer[i+j]);
-     fprintf(out,"\n");
-     }
-     }
-     fclose(out);*/
 }
 
 
@@ -106,22 +95,32 @@ void firFloat( double *coeffs, double *input, double *output,
 // bandpass filter centred around 1000 Hz
 // sampling rate = 8000 Hz
 
-#define FILTER_LEN  63
+#define FILTER_LEN  23
 double coeffs[ FILTER_LEN ] =
 {
-    -0.0448093,  0.0322875,   0.0181163,   0.0087615,   0.0056797,
-    0.0086685,  0.0148049,   0.0187190,   0.0151019,   0.0027594,
-    -0.0132676, -0.0232561,  -0.0187804,   0.0006382,   0.0250536,
-    0.0387214,  0.0299817,   0.0002609,  -0.0345546,  -0.0525282,
-    -0.0395620,  0.0000246,   0.0440998,   0.0651867,   0.0479110,
-    0.0000135, -0.0508558,  -0.0736313,  -0.0529380,  -0.0000709,
-    0.0540186,  0.0766746,   0.0540186,  -0.0000709,  -0.0529380,
-    -0.0736313, -0.0508558,   0.0000135,   0.0479110,   0.0651867,
-    0.0440998,  0.0000246,  -0.0395620,  -0.0525282,  -0.0345546,
-    0.0002609,  0.0299817,   0.0387214,   0.0250536,   0.0006382,
-    -0.0187804, -0.0232561,  -0.0132676,   0.0027594,   0.0151019,
-    0.0187190,  0.0148049,   0.0086685,   0.0056797,   0.0087615,
-    0.0181163,  0.0322875,  -0.0448093
+    -0.034591108434207436,
+    -0.07561526460190739,
+    -0.029497878620854484,
+    0.041475719143027404,
+    0.006878338742875528,
+    -0.05246881803045016,
+    0.023147925859329222,
+    0.06319081253428827,
+    -0.07887482502589523,
+    -0.07258013376173075,
+    0.309293967167761,
+    0.5752079545954838,
+    0.309293967167761,
+    -0.07258013376173075,
+    -0.07887482502589523,
+    0.06319081253428827,
+    0.023147925859329222,
+    -0.05246881803045016,
+    0.006878338742875528,
+    0.041475719143027404,
+    -0.029497878620854484,
+    -0.07561526460190739,
+    -0.034591108434207436
 };
 
 void intToFloat( int16_t *input, double *output, int length )
@@ -156,7 +155,7 @@ int main( void )
     // open the input waveform file
     SF_INFO info1;
     int *buffer1;
-    char nombre1[] = "./audios/SineWaveMinus16.wav";
+    char nombre1[] = "./audios/discurso.wav";
     leerAudio(buffer1, info1, nombre1);
     
     int size;
@@ -176,7 +175,6 @@ int main( void )
     
     // initialize the filter
     firFloatInit();
-    
     // process all of the samples
     size=80;
     int start=0;
@@ -196,7 +194,7 @@ int main( void )
         floatToInt( floatOutput, output, size );
         // write samples to file
         fwrite( output, sizeof(int16_t), size, out_fid );
-    } while ( start < 5000000);
+    } while (start < info1.frames*info1.channels);
     
     fclose( in_fid );
     fclose( out_fid );
