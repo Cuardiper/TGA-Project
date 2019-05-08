@@ -22,6 +22,7 @@ void leerAudio(int *&buffer, SF_INFO &info, char nombre[]){
     
     int num_items =  frames * channels;
     
+    printf("formato=%d\n",info.format);
     printf("channels=%d\n",channels);
     printf("frames=%d\n",frames);
     printf("samplerate=%d\n",sampleRate);
@@ -155,7 +156,7 @@ int main( void )
     // open the input waveform file
     SF_INFO info1;
     int *buffer1;
-    char nombre1[] = "./audios/discurso.wav";
+    char nombre1[] = "./audios/test.wav";
     leerAudio(buffer1, info1, nombre1);
     
     int size;
