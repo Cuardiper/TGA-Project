@@ -12,9 +12,9 @@ struct Frame {
 	int bpp;
 };
 
-Frame read_frame() {
+struct Frame read_frame() {
     int width, height, bpp;
-	Frame result;
+	struct Frame result;
     uint8_t* rgb_image = stbi_load("image.png", &width, &height, &bpp, 3);
 	result.data = rgb_image;
 	result.width = width;
