@@ -1,14 +1,21 @@
-Extraer fotogramas de video
+#Extraer fotogramas de video
 ffmpeg -i video.mp4 pics/thumb%d.jpg -hide_banner
-Para crear video a partir de fotogramas
+#Para crear video a partir de fotogramas
 ffmpeg -framerate 25 -i pics/thumb%d.jpg -pattern_type glob -c:v libx264 -pix_fmt yuv420p out.mp4
-Para extraer audio
+#Para extraer audio
 ffmpeg -i video.mp4 -vn -acodec copy audio.aac
 ffmpeg -i video.mp4 -f mp3 -ab 192000 -vn audio.mp3
 mp3 to wav
 ffmpeg -i audio.mp3 audio.wav
-Para restaurar el audio (funciona con los tres formatos)
+#Para restaurar el audio (funciona con los tres formatos)
 ffmpeg -i video.mp4 -i audio.wav -c:v copy -c:a aac -strict experimental output.mp4
 
+#Pasar archivos a borda
 scp video.mp4 tga0026@boada.ac.upc.edu:.
+
+
+
+##UTILS##
+-Leer png
+https://stackoverflow.com/questions/2076475/reading-an-image-file-in-c-c
 
