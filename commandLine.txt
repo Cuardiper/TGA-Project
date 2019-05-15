@@ -13,6 +13,9 @@ ffmpeg -i video.mp4 -i audio.wav -c:v copy -c:a aac -strict experimental output.
 
 
 ##UTILS##
+-compilar
+gcc videoEditor.c -lm
+
 -Leer png
 https://stackoverflow.com/questions/2076475/reading-an-image-file-in-c-c
 
