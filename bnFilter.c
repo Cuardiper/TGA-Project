@@ -17,7 +17,7 @@ struct Frame {
 struct Frame read_frame() {
     int width, height, bpp;
 	struct Frame result;
-    uint8_t* rgb_image = stbi_load("pics/thumb1.png", &width, &height, &bpp, 3);
+    uint8_t* rgb_image = stbi_load("pics/thumb1.jpg", &width, &height, &bpp, 3);
 	result.data = rgb_image;
 	result.width = width;
 	result.height = height;
@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
 		printf("Necesito la ruta del video en mp4!\n");
 	}
 	char* filename = argv[1];
-	char* auxCommand = "pics/thumb%d.png -hide_banner";
+	char* auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
 	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
 	//system(comando);
@@ -52,13 +52,13 @@ int main(int argc, char* argv[])
 		int R = frame.data[i];
 		int G = frame.data[i+1];
 		int B = frame.data[i+2];
-		int gray = (R + G + B) / 3;
+		int gray = (R*0.299 + G*0.587 + B*0.114);
 		frame.data[i]=gray;
 		frame.data[i+1] = gray;
 		frame.data[i+2] = gray;
 	}
 
-	stbi_write_png("edited.png", frame.width, frame.height, 3, frame.data, frame.width*3);
+	stbi_write_jpg("edited2.jpg", frame.width, frame.height, 3, frame.data, frame.width*3);
 
 	/*
 	unsigned char* pixelOffset = data + (i + y * j) * bytePerPixel;
