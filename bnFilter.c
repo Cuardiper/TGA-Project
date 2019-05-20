@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 	char* auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
 	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
-	//system(comando);
+	system(comando);
 	struct Frame frame = read_frame();
 
 
@@ -59,14 +59,6 @@ int main(int argc, char* argv[])
 	}
 
 	stbi_write_jpg("edited2.jpg", frame.width, frame.height, 3, frame.data, frame.width*3);
-
-	/*
-	unsigned char* pixelOffset = data + (i + y * j) * bytePerPixel;
-	unsigned char r = pixelOffset[0];
-	unsigned char g = pixelOffset[1];
-	unsigned char b = pixelOffset[2];
-	unsigned char a = channelCount >= 4 ? pixelOffset[3] : 0xff;
-	*/
 
 	//auxCommand = "ffmpeg -framerate 25 -i pics/thumb%d.jpg" 
 	//sprintf(comando, "%s -pattern_type glob -c:v libx264 -pix_fmt yuv420p %s_out.mp4",auxCommand, filename);

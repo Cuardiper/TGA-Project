@@ -16,8 +16,11 @@ ffmpeg -i video.mp4 -i audio.wav -c:v copy -c:a aac -strict experimental output.
 -compilar
 gcc videoEditor.c -lm
 
--Leer png
+-Leer png/jpg
 https://stackoverflow.com/questions/2076475/reading-an-image-file-in-c-c
+
+-Coger valores RGB
+https://stackoverflow.com/questions/48235421/get-rgb-of-a-pixel-in-stb-image
 
 -Pasar archivos a boada
 scp video.mp4 tga0026@boada.ac.upc.edu:.
