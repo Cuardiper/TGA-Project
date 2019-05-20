@@ -4,7 +4,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <math.h>
 #include "stb_image.h"
-#include <dirent.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
 
 struct Frame {
 	uint8_t* data;
@@ -13,10 +15,10 @@ struct Frame {
 	int bpp;
 };
 
-struct Frame read_frame() {
+struct Frame read_frame(char* filename) {
     int width, height, bpp;
 	struct Frame result;
-    uint8_t* rgb_image = stbi_load("image.png", &width, &height, &bpp, 3);
+    uint8_t* rgb_image = stbi_load(filename, &width, &height, &bpp, 3);
 	result.data = rgb_image;
 	result.width = width;
 	result.height = height;
@@ -26,9 +28,28 @@ struct Frame read_frame() {
 }
 
 
-struct Frame* bnFilter(int elems) {
-	struct Frame imgBn[1];
-	return &imgBn[0];
+void process_frame_bn(char* filename) {
+	struct Frame frame = read_frame(filename);
+	for (int i = 0; i < frame.width*frame.height*3; i+=3)
+	{
+		int R = frame.data[i];
+		int G = frame.data[i+1];
+		int B = frame.data[i+2];
+		int gray = (R*0.299 + G*0.587 + B*0.114);
+		frame.data[i]=gray;
+		frame.data[i+1] = gray;
+		frame.data[i+2] = gray;
+	}
+	stbi_write_jpg(filename, frame.width, frame.height, 3, frame.data, frame.width*3);
+}
+
+void bnFilter() {
+	printf("Reading....\n");
+	char filename[300] = "pics/thumb1.jpg";
+	for (int i = 1; i < 2586; ++i) {
+		sprintf(filename, "pics/thumb%d.jpg",i);
+		process_frame_bn(filename);
+	}
 }
 
 
@@ -45,14 +66,12 @@ int main(int argc, char* argv[])
 	system(comando);
 	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
 	system(comando);
-	char* frames = system("ls -l pics | wc -l");
-	int numberFrames = atoi(frames)-1;
-	printf("%d",numberFrames);
 	int filter;
 	printf("Que filtro quieres aplicar al video?\n1 - Grayscale\n2 - Sepia Filter\n3 - Binarize Filter\n");
 	scanf("%d",&filter);
 	if (filter == 1 || filter == 3) {
 		//BN filter
+		bnFilter();
 		if (filter == 3) {
 			//Binarizar
 		}
