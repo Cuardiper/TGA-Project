@@ -18,17 +18,16 @@ struct Frame {
 };
 
 
-
 void read_frames(struct Frame* frame, int size) {
 	for (int i = 0; i < size; ++i) {
 		char filename[300];
 		sprintf(filename, "pics/thumb%d.jpg",i);
 		int width, height, bpp;
 		uint8_t* rgb_image = stbi_load(filename, &width, &height, &bpp, 3);
-		frame[i]->data = rgb_image;
-		frame[i]->width = width;
-		frame[i]->height = height;
-		frame[i]->bpp = bpp;
+		frame[i].data = rgb_image;
+		frame[i].width = width;
+		frame[i].height = height;
+		frame[i].bpp = bpp;
 		//stbi_image_free(rgb_image);
 	}
 }
@@ -48,8 +47,8 @@ void process_frame_bn(struct Frame* frame, char* filename) {
 		(*frame).data[i+2] = gray;
 	}
 	end = clock();
-	//printf("%f\n",((double) (end-start)/CLOCKS_PER_SEC));
-	//stbi_write_jpg(filename, frame.width, frame.height, 3, frame.data, frame.width*3);
+	printf("%f\n",((double) (end-start)/CLOCKS_PER_SEC));
+	stbi_write_jpg(filename, frame->width, frame->height, 3, frame->data, frame->width*3);
 }
 
 void process_frame_binarize(struct Frame* frame, char* filename) {
@@ -64,7 +63,7 @@ void process_frame_binarize(struct Frame* frame, char* filename) {
 		(*frame).data[i+1] = gray;
 		(*frame).data[i+2] = gray;
 	}
-	stbi_write_jpg(filename, frame.width, frame.height, 3, frame.data, frame.width*3);
+	stbi_write_jpg(filename, frame->width, frame->height, 3, frame->data, frame->width*3);
 }
 
 int max(int n1) {
@@ -85,10 +84,10 @@ void process_frame_sepia(struct Frame* frame, char* filename) {
 		(*frame).data[i+1] = G1;
 		(*frame).data[i+2] = B1;
 	}
-	stbi_write_jpg(filename, frame.width, frame.height, 3, frame.data, frame.width*3);
+	stbi_write_jpg(filename, frame->width, frame->height, 3, frame->data, frame->width*3);
 }
 
-void applyFilter(int filter, int size, struct* Frame frames) {
+void applyFilter(int filter, int size, struct Frame* frames) {
 	printf("Reading....\n");
 	char filename[300];
 	clock_t start, end;
@@ -96,11 +95,11 @@ void applyFilter(int filter, int size, struct* Frame frames) {
 	for (int i = 1; i < size; ++i) {
 		sprintf(filename, "pics/thumb%d.jpg",i);
 		if (filter == 1)
-			process_frame_bn(filename);
+			process_frame_bn(&frames[i], filename);
 		else if (filter == 2)
-			process_frame_binarize(filename);
+			process_frame_binarize(&frames[i], filename);
 		else if (filter == 3)
-			process_frame_sepia(filename);
+			process_frame_sepia(&frames[i], filename);
 	}
 	end = clock();
 	printf("Tiempo total: %f\n",((double) (end-start)/CLOCKS_PER_SEC));
@@ -113,14 +112,17 @@ int main(int argc, char* argv[])
 		printf("Necesito la ruta del video en mp4!\n");
 		return -1;
 	}
-	char* filename = argv[1];
+	//Sacar los fotogramas del video usando FFMPEG
+	char *filename = argv[1];
 	//system("mkdir pics");
-	char* auxCommand = "pics/thumb%d.jpg -hide_banner";
+	char *auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
 	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
 	//system(comando);
 	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
 	system(comando);
+
+	//Contar el numero de fotogramas obtenidos
 	DIR *d;
 	struct dirent *dir;
 	d = opendir("pics/");
@@ -132,6 +134,7 @@ int main(int argc, char* argv[])
 		closedir(d);
 	}
 	printf("Total frames: %d",frames);
+
 	struct Frame fotogramas[frames-2];
 	read_frames(&fotogramas[0],frames-1);
 	int filter;
