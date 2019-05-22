@@ -57,6 +57,7 @@ int main(int argc, char* argv[])
 {
     if (argc < 2) {
 		printf("Necesito la ruta del video en mp4!\n");
+		return -1;
 	}
 	char* filename = argv[1];
 	system("mkdir pics");
