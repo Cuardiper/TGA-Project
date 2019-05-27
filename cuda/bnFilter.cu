@@ -56,15 +56,15 @@ int max(int n1) {
 ///CODIGO CUDA//////  |
 ///////////////////   v
 
-__global__ void KernelByN (int N, int M, uint8_t *A) {
+__global__ void KernelByN (int Nfil, int Ncol, uint8_t *A) {
 
   int row = blockIdx.y * blockDim.y + threadIdx.y;
-  int col = blockIdx.x * blockDim.x + 3*threadIdx.x;
-  printf("%dX%d\n", N, M);
+  int col = blockIdx.x * blockDim.x + threadIdx.x;
 
-  if(row < M && col < N){
-		printf("%d\n", A[row*N+col+1]);
-		A[row*N+col] = A[row*N+col+1] = A[row*N+col+2] = (A[row*N+col] + A[row*N+col+1] + A[row*N+col+2])/3;
+  int ind = row * Ncol + col;
+
+  if(row < Nfil && col < Ncol){
+		A[ind] = A[ind+1] = A[ind+2] = (A[ind] + A[ind+1] + A[ind+2])/3;
   }
 }
 
@@ -86,12 +86,12 @@ int main(int argc, char** argv)
 
   	///Leer jpeg de la carpeta////
   	struct Frame frame = read_frame();
-  	Nfil = frame.width;
+  	Nfil = frame.width * 3;
   	Ncol = frame.height;
   	printf("%dX%d\n", Nfil, Ncol);
   	//////////////////////////////
 
-  	numBytes = Nfil * Ncol * 3 * sizeof(uint8_t);
+  	numBytes = Nfil * Ncol * sizeof(uint8_t);
 
   	cudaEventCreate(&E0);	cudaEventCreate(&E1);
 	cudaEventCreate(&E2);	cudaEventCreate(&E3);
@@ -115,7 +115,6 @@ int main(int argc, char** argv)
 
 	// numero de Threads en cada dimension 
   	nThreads = SIZE;
-  	printf("%d\n", nThreads);
 
 	// numero de Blocks en cada dimension
   	int nBlocksFil = (Nfil+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
@@ -123,7 +122,6 @@ int main(int argc, char** argv)
 
   	dim3 dimGridE(nBlocksCol, nBlocksFil, 1);
   	dim3 dimBlockE(nThreads, nThreads, 1);
-
 
 	cudaEventRecord(E0, 0);
 	cudaEventSynchronize(E0);
@@ -147,7 +145,8 @@ int main(int argc, char** argv)
 	cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
 
 	//Guardar fotograma
-	//stbi_write_jpg("edited2.jpg", N, M, 3, frame.data, N*3);
+	frame.data = h_B;
+	stbi_write_jpg("edited2.jpg", Nfil/3, Ncol, 3, frame.data, Nfil);
 }
 
 void CheckCudaError(char sms[], int line) {
