@@ -47,8 +47,10 @@ void process_frame_bn(struct Frame* frame, char* filename) {
 		(*frame).data[i+2] = gray;
 	}
 	end = clock();
-	printf("%f\n",((double) (end-start)/CLOCKS_PER_SEC));
-	stbi_write_jpg(filename, frame->width, frame->height, 3, frame->data, frame->width*3);
+	//printf("%f\n",((double) (end-start)/CLOCKS_PER_SEC));
+	char ruta [300];
+	sprintf(ruta, "pics2/%s",filename);
+	stbi_write_jpg(ruta, frame->width, frame->height, 3, frame->data, frame->width*3);
 }
 
 void process_frame_binarize(struct Frame* frame, char* filename) {
@@ -88,12 +90,12 @@ void process_frame_sepia(struct Frame* frame, char* filename) {
 }
 
 void applyFilter(int filter, int size, struct Frame* frames) {
-	printf("Reading....\n");
+	printf("Aplicando filtro....\n");
 	char filename[300];
 	clock_t start, end;
 	start = clock();
 	for (int i = 1; i < size; ++i) {
-		sprintf(filename, "pics/thumb%d.jpg",i);
+		sprintf(filename, "thumb%d.jpg",i);
 		if (filter == 1)
 			process_frame_bn(&frames[i], filename);
 		else if (filter == 2)
@@ -114,11 +116,12 @@ int main(int argc, char* argv[])
 	}
 	//Sacar los fotogramas del video usando FFMPEG
 	char *filename = argv[1];
-	//system("mkdir pics");
+	system("mkdir pics");
+	system("mkdir pics2");
 	char *auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
-	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
-	//system(comando);
+	//sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
+	system(comando);
 	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
 	system(comando);
 
@@ -133,7 +136,7 @@ int main(int argc, char* argv[])
 		}
 		closedir(d);
 	}
-	printf("Total frames: %d",frames);
+	printf("Leyendo %d fotogramas...\n",frames);
 
 	struct Frame fotogramas[frames-2];
 	read_frames(&fotogramas[0],frames-1);
@@ -141,7 +144,7 @@ int main(int argc, char* argv[])
 	printf("Que filtro quieres aplicar al video?\n1 - Grayscale\n2 - Sepia Filter\n3 - Binarize Filter\n");
 	scanf("%d",&filter);
 	applyFilter(filter, frames-1, &fotogramas[0]);
-	auxCommand = "ffmpeg -framerate 25 -i pics/thumb%d.jpg";
+	auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
 	sprintf(comando, "%s -pattern_type glob -c:v libx264 -pix_fmt yuv420p %s_out_provisional.mp4",auxCommand, filename);
 	system(comando);
 	sprintf(comando,"ffmpeg -i %s_out_provisional.mp4 -i audio.aac -c:v copy -c:a aac -strict experimental %s_out.mp4",filename,filename);
