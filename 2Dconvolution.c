@@ -11,8 +11,8 @@
 
 int kRows = 3;
 int kCols = 3;
-double kernel[3][3] = {{(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}};
-
+//double kernel[3][3] = {{(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}};
+double kernel[3][3] = {{-1,-1,-1}, {-1,8,-1}, {-1,-1,-1}};
 
 struct Frame {
 	uint8_t* data;
@@ -23,17 +23,17 @@ struct Frame {
 
 
 void read_frames(struct Frame* frame, int size) {
-	//for (int i = 0; i < size; ++i) {
+	for (int i = 0; i < size; ++i) {
 		char filename[300];
-		sprintf(filename, "pirate.jpg");
+		sprintf(filename, "pics/thumb%d.jpg",i+1);
 		int width, height, bpp;
 		uint8_t* rgb_image = stbi_load(filename, &width, &height, &bpp, 3);
-		frame[0].data = rgb_image;
-		frame[0].width = width;
-		frame[0].height = height;
-		frame[0].bpp = bpp;
+		frame[i].data = rgb_image;
+		frame[i].width = width;
+		frame[i].height = height;
+		frame[i].bpp = bpp;
 		//stbi_image_free(rgb_image);
-	//}
+	}
 }
 
 void inicializa(struct Frame* frame, int size){
@@ -55,10 +55,6 @@ void process_convolution(struct Frame* frame, struct Frame* out, char* filename)
 	//find center position of kernel
 	int kCenterX = kCols / 2;
 	int kCenterY = kRows / 2;
-	printf("centro: %d %d\n",kCenterX, kCenterY);
-
-	printf("1(fr)-%d\n", (*frame).data[1264]);
-	printf("1(out)-%d\n", (*out).data[1264]);
 
 	for (int i = 0; i < rows; ++i)					// rows
 	{
@@ -85,10 +81,8 @@ void process_convolution(struct Frame* frame, struct Frame* out, char* filename)
 			}
 		}
 	}
-	printf("2(fr)-%d\n", (*frame).data[1264]);
-	printf("2(out)-%d\n", (*out).data[1264]);
 	char ruta [300];
-	sprintf(ruta, "pics3/%s",filename);
+	sprintf(ruta, "pics2/%s",filename);
 	stbi_write_jpg(ruta, out->width, out->height, 3, out->data, out->width*3);
 }
 
@@ -97,10 +91,11 @@ void applyFilter(int size, struct Frame* frames, struct Frame* out) {
 	char filename[300];
 	clock_t start, end;
 	start = clock();
-	//for (int i = 1; i < size; ++i) {
-		sprintf(filename, "pirate.jpg");
-		process_convolution(&frames[0], &out[0],filename);
-	//}
+	for (int i = size-3; i < size-1; ++i) {
+		printf("%d\n", i);
+		sprintf(filename, "thumb%d.jpg",i+1);
+		process_convolution(&frames[i], &out[i],filename);
+	}
 	end = clock();
 	printf("Tiempo total: %f\n",((double) (end-start)/CLOCKS_PER_SEC));
 }
@@ -113,15 +108,14 @@ int main(int argc, char* argv[])
 	}
 	//Sacar los fotogramas del video usando FFMPEG
 	char *filename = argv[1];
-	system("mkdir pics");
+	//system("mkdir pics");
 	system("mkdir pics2");
-	system("mkdir pics3");
 	char *auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
-	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
-	//system(comando);
+	//sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
+	system(comando);
 	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
-	//system(comando);
+	system(comando);
 
 	//Contar el numero de fotogramas obtenidos
 	DIR *d;
@@ -144,9 +138,9 @@ int main(int argc, char* argv[])
 
 	auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
 	sprintf(comando, "%s -pattern_type glob -c:v libx264 -pix_fmt yuv420p %s_out_provisional.mp4",auxCommand, filename);
-	//system(comando);
+	system(comando);
 	sprintf(comando,"ffmpeg -i %s_out_provisional.mp4 -i audio.aac -c:v copy -c:a aac -strict experimental %s_out.mp4",filename,filename);
-	//system(comando);
+	system(comando);
 	sprintf(comando,"rm %s_out_provisional.mp4",filename);
 	system(comando);
 	system("rm audio.aac");
