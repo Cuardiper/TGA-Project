@@ -12,7 +12,8 @@
 int kRows = 3;
 int kCols = 3;
 //double kernel[3][3] = {{(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}};
-double kernel[3][3] = {{-1,-1,-1}, {-1,8,-1}, {-1,-1,-1}};
+//double kernel[3][3] = {{-1,-1,-1}, {-1,8,-1}, {-1,-1,-1}};
+double kernel[3][3] = {{(double)1/16,(double)1/8,(double)1/16}, {(double)1/8,(double)1/4,(double)1/8}, {(double)1/16,(double)1/8,(double)1/16}};
 
 struct Frame {
 	uint8_t* data;
@@ -44,57 +45,62 @@ void inicializa(struct Frame* frame, int size){
 	}
 }
 
-void process_convolution(struct Frame* frame, struct Frame* out, char* filename){
-
-	int rows = frame->height;
-	int cols = frame->width;
-	(*out).height = rows;
-	(*out).width = cols;
-	inicializa(out, rows*cols*3);
-
-	//find center position of kernel
-	int kCenterX = kCols / 2;
-	int kCenterY = kRows / 2;
-
-	for (int i = 0; i < rows; ++i)					// rows
-	{
-		for (int j = 0; j < cols; ++j)				// columns
+void process_convolution(struct Frame* fotograma, int intensity, char* filename){
+	
+	struct Frame frame[1];
+	*frame = *fotograma;
+	for (int i = 0; i < intensity*4; i++) {
+		struct Frame out[1];
+		int rows = frame->height;
+		int cols = frame->width;
+		(*out).height = rows;
+		(*out).width = cols;
+		inicializa(out, rows*cols*3);
+		//find center position of kernel
+		int kCenterX = kCols / 2;
+		int kCenterY = kRows / 2;
+		for (int i = 0; i < rows; ++i)					// rows
 		{
-			for (int m = 0; m < kRows; ++m)			// kernel rows
+			for (int j = 0; j < cols; ++j)				// columns
 			{
-
-				for (int n = 0; n < kCols; ++n)		// kernel columns	
+				for (int m = 0; m < kRows; ++m)			// kernel rows
 				{
 
-					// index of input signal used for checking boundary
-					int ii = i + (kCenterY - m);
-					int jj = j + (kCenterX - n);
+					for (int n = 0; n < kCols; ++n)		// kernel columns	
+					{
 
-					//ignore input samples which are out of bound
-					if(ii >= 0 && ii < rows && jj >= 0 && jj < cols){
+						// index of input signal used for checking boundary
+						int ii = i + (kCenterY - m);
+						int jj = j + (kCenterX - n);
 
-						(*out).data[(i*cols+j)*3] += (*frame).data[(ii*cols + jj)*3] * kernel[m][n];
-						(*out).data[((i*cols+j)*3)+1] += (*frame).data[((ii*cols + jj)*3)+1] * kernel[m][n];
-						(*out).data[((i*cols+j)*3)+2] += (*frame).data[((ii*cols + jj)*3)+2] * kernel[m][n];
+						//ignore input samples which are out of bound
+						if(ii >= 0 && ii < rows && jj >= 0 && jj < cols){
+
+							(*out).data[(i*cols+j)*3] += (*frame).data[(ii*cols + jj)*3] * kernel[m][n];
+							(*out).data[((i*cols+j)*3)+1] += (*frame).data[((ii*cols + jj)*3)+1] * kernel[m][n];
+							(*out).data[((i*cols+j)*3)+2] += (*frame).data[((ii*cols + jj)*3)+2] * kernel[m][n];
+						}
 					}
 				}
 			}
 		}
+		*frame = *out;
 	}
 	char ruta [300];
 	sprintf(ruta, "pics2/%s",filename);
-	stbi_write_jpg(ruta, out->width, out->height, 3, out->data, out->width*3);
+	stbi_write_jpg(ruta, frame->width, frame->height, 3, frame->data, frame->width*3);
 }
 
-void applyFilter(int size, struct Frame* frames, struct Frame* out) {
+void applyFilter(int size, struct Frame* frames) {
 	printf("Aplicando filtro....\n");
 	char filename[300];
 	clock_t start, end;
 	start = clock();
-	for (int i = size-3; i < size-1; ++i) {
+	int intensidad = 6;
+	for (int i = 0; i < size-1; ++i) {
 		printf("%d\n", i);
 		sprintf(filename, "thumb%d.jpg",i+1);
-		process_convolution(&frames[i], &out[i],filename);
+		process_convolution(&frames[i], intensidad, filename);
 	}
 	end = clock();
 	printf("Tiempo total: %f\n",((double) (end-start)/CLOCKS_PER_SEC));
@@ -112,8 +118,8 @@ int main(int argc, char* argv[])
 	system("mkdir pics2");
 	char *auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
-	//sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
-	system(comando);
+	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
+	//system(comando);
 	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
 	system(comando);
 
@@ -128,14 +134,12 @@ int main(int argc, char* argv[])
 		}
 		closedir(d);
 	}
-	printf("Leyendo %d fotogramas...\n",frames);
+	printf("Leyendo %d fotogramas...\n",frames-2);
 
 	struct Frame fotogramas[frames-2];
 	read_frames(&fotogramas[0],frames-1);
-	
-	struct Frame out[frames-2];
-	applyFilter(frames-1, &fotogramas[0], &out[0]);
-
+	int intensidad = 6;
+	applyFilter(frames-1, &fotogramas[0]);
 	auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
 	sprintf(comando, "%s -pattern_type glob -c:v libx264 -pix_fmt yuv420p %s_out_provisional.mp4",auxCommand, filename);
 	system(comando);
