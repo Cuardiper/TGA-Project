@@ -11,9 +11,11 @@
 
 int kRows = 3;
 int kCols = 3;
-//double kernel[3][3] = {{(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}};
-//double kernel[3][3] = {{-1,-1,-1}, {-1,8,-1}, {-1,-1,-1}};
-double kernel[3][3] = {{(double)1/16,(double)1/8,(double)1/16}, {(double)1/8,(double)1/4,(double)1/8}, {(double)1/16,(double)1/8,(double)1/16}};
+// double kernel[3][3] = {{(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}};
+// double kernel[3][3] = {{-1,-1,-1}, {-1,8,-1}, {-1,-1,-1}};
+double kernel[3][3] = {{0,-1,0}, {-1,5,-1}, {0,-1,0}};
+// double kernel[3][3] = {{(double)1/16,(double)1/8,(double)1/16}, {(double)1/8,(double)1/4,(double)1/8}, {(double)1/16,(double)1/8,(double)1/16}};
+// double kernel[5][5] = {{(double)1/273,(double)4/273,(double)7/273,(double)4/273,(double)1/273},{(double)4/273,(double)16/273,(double)26/273,(double)16/273,(double)4/273},{(double)7/273,(double)26/273,(double)41/273,(double)26/273,(double)7/273},{(double)4/273,(double)16/273,(double)26/273,(double)16/273,(double)4/273},{(double)1/273,(double)4/273,(double)7/273,(double)4/273,(double)1/273}};
 
 struct Frame {
 	uint8_t* data;
@@ -37,25 +39,23 @@ void read_frames(struct Frame* frame, int size) {
 	}
 }
 
-void inicializa(struct Frame* frame, int size){
-	(*frame).data = malloc(size * sizeof(uint8_t));
-	for (int i = 0; i < size; i++)
-	{
-		(*frame).data[i] = 0;
-	}
-}
+// void inicializa(struct Frame* frame, int size){
+//     (*frame).data = malloc(size*sizeof(uint8_t));
+// 	for (int i = 0; i < size; i++)
+// 	{
+//         printf("Ini %d\n",i);
+// 		(*frame).data[i] = 0;
+// 	}
+// }
 
-void process_convolution(struct Frame* fotograma, int intensity, char* filename){
-	
-	struct Frame frame[1];
-	*frame = *fotograma;
-	for (int i = 0; i < intensity*4; i++) {
-		struct Frame out[1];
-		int rows = frame->height;
-		int cols = frame->width;
-		(*out).height = rows;
-		(*out).width = cols;
-		inicializa(out, rows*cols*3);
+void process_convolution(struct Frame* frame, struct Frame* out, int intensity){
+    int rows = frame->height;
+    int cols = frame->width;
+    (*out).height = rows;
+    (*out).width = cols;
+    (*out).data = malloc(rows*cols*3*sizeof(uint8_t));
+	for (int i = 0; i < intensity; i++) {
+//         printf("Intensity %d\n",i);
 		//find center position of kernel
 		int kCenterX = kCols / 2;
 		int kCenterY = kRows / 2;
@@ -63,6 +63,9 @@ void process_convolution(struct Frame* fotograma, int intensity, char* filename)
 		{
 			for (int j = 0; j < cols; ++j)				// columns
 			{
+                (*out).data[(i*cols+j)*3] = 0;
+                (*out).data[(i*cols+j)*3+1] = 0;
+                (*out).data[(i*cols+j)*3+2] = 0;
 				for (int m = 0; m < kRows; ++m)			// kernel rows
 				{
 
@@ -86,24 +89,27 @@ void process_convolution(struct Frame* fotograma, int intensity, char* filename)
 		}
 		*frame = *out;
 	}
-	char ruta [300];
-	sprintf(ruta, "pics2/%s",filename);
-	stbi_write_jpg(ruta, frame->width, frame->height, 3, frame->data, frame->width*3);
 }
 
-void applyFilter(int size, struct Frame* frames) {
+void applyFilter(int size, struct Frame* frames, struct Frame* out) {
 	printf("Aplicando filtro....\n");
 	char filename[300];
 	clock_t start, end;
 	start = clock();
-	int intensidad = 6;
+	int intensidad = 1;
 	for (int i = 0; i < size-1; ++i) {
-		printf("%d\n", i);
-		sprintf(filename, "thumb%d.jpg",i+1);
-		process_convolution(&frames[i], intensidad, filename);
+		process_convolution(&frames[i], &out[i], intensidad);
 	}
 	end = clock();
-	printf("Tiempo total: %f\n",((double) (end-start)/CLOCKS_PER_SEC));
+	printf("Tiempo total kernel secuencial: %f\n",((double) (end-start)/CLOCKS_PER_SEC));
+    printf("Writing...\n");
+	for (int i = 0; i < size-1; ++i) {
+        printf("\rIn progress %d", i*100/(size-1));
+		sprintf(filename, "thumb%d.jpg",i+1);
+        char ruta [300];
+        sprintf(ruta, "pics2/%s",filename);
+        stbi_write_jpg(ruta, out[i].width, out[i].height, 3, out[i].data, out[i].width*3);
+    }
 }
 
 int main(int argc, char* argv[])
@@ -114,12 +120,12 @@ int main(int argc, char* argv[])
 	}
 	//Sacar los fotogramas del video usando FFMPEG
 	char *filename = argv[1];
-	//system("mkdir pics");
+// 	system("mkdir pics");
 	system("mkdir pics2");
 	char *auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
-	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
-	//system(comando);
+// 	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
+	system(comando);
 	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
 	system(comando);
 
@@ -139,7 +145,8 @@ int main(int argc, char* argv[])
 	struct Frame fotogramas[frames-2];
 	read_frames(&fotogramas[0],frames-1);
 	int intensidad = 6;
-	applyFilter(frames-1, &fotogramas[0]);
+    struct Frame output[frames-2];
+	applyFilter(frames-1, &fotogramas[0], &output[0]);
 	auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
 	sprintf(comando, "%s -pattern_type glob -c:v libx264 -pix_fmt yuv420p %s_out_provisional.mp4",auxCommand, filename);
 	system(comando);
