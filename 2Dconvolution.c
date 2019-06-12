@@ -12,8 +12,8 @@
 int kRows = 3;
 int kCols = 3;
 // double kernel[3][3] = {{(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}};
-// double kernel[3][3] = {{-1,-1,-1}, {-1,8,-1}, {-1,-1,-1}};
-double kernel[3][3] = {{0,-1,0}, {-1,5,-1}, {0,-1,0}};
+double kernel[3][3] = {{-1,-1,-1}, {-1,8,-1}, {-1,-1,-1}};
+// double kernel[3][3] = {{0,-1,0}, {-1,5,-1}, {0,-1,0}};
 // double kernel[3][3] = {{(double)1/16,(double)1/8,(double)1/16}, {(double)1/8,(double)1/4,(double)1/8}, {(double)1/16,(double)1/8,(double)1/16}};
 // double kernel[5][5] = {{(double)1/273,(double)4/273,(double)7/273,(double)4/273,(double)1/273},{(double)4/273,(double)16/273,(double)26/273,(double)16/273,(double)4/273},{(double)7/273,(double)26/273,(double)41/273,(double)26/273,(double)7/273},{(double)4/273,(double)16/273,(double)26/273,(double)16/273,(double)4/273},{(double)1/273,(double)4/273,(double)7/273,(double)4/273,(double)1/273}};
 
@@ -120,11 +120,11 @@ int main(int argc, char* argv[])
 	}
 	//Sacar los fotogramas del video usando FFMPEG
 	char *filename = argv[1];
-// 	system("mkdir pics");
+ 	system("mkdir pics");
 	system("mkdir pics2");
 	char *auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
-// 	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
+ 	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
 	system(comando);
 	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
 	system(comando);

@@ -35,7 +35,7 @@ void read_frames(uint8_t* frame, int size, int sizeFrame) {
 	for (int i = 0; i < size; ++i) {
 		char filename[300];
 		sprintf(filename, "pics/thumb%d.jpg",i+1);
-		uint8_t width, height, bpp;
+		int width, height, bpp;
 		uint8_t* rgb_image = stbi_load(filename, &width, &height, &bpp, 3);
         frame[i*sizeFrame] = height;
         frame[i*sizeFrame+1] = width;
@@ -155,7 +155,7 @@ int main(int argc, char** argv)
     // Obtener Memoria en el device
   	cudaMalloc((uint8_t**)&Dev_I, numBytes);
   	// Copiar datos desde el host en el device 
-	cudaMemcpy(Dev_I, Host_Input, numBytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(Dev_I, Host_I, numBytes, cudaMemcpyHostToDevice);
 	CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
   	
 	//
@@ -187,11 +187,11 @@ int main(int argc, char** argv)
   	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
     printf("Writing...\n");
     for (int i = 0; i < frames-2; ++i) {
-        printf("\rIn progress %d", i*100/(size-1));
+        printf("\rIn progress %d", i*100/(SIZE-1)); ///'size' no definido (solución: lo pongo en mayusculas, no se si es la variable a la que te querias referir)
 		sprintf(filename, "thumb%d.jpg",i+1);
         char ruta [300];
         sprintf(ruta, "pics2/%s",filename);
-        stbi_write_jpg(ruta, out[i+1], out[i], 3, &out[i+3], out[i+1]*3);
+        stbi_write_jpg(ruta, Host_O[i+1], Host_O[i], 3, &Host_O[i+3], Host_O[i+1]*3);   //He cambiado out[] por Host_O[]
     }
 
 	// Liberar Memoria del device 
