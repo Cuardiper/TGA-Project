@@ -12,25 +12,6 @@
 
 #define SIZE 32
 
-// struct Frame {
-// 	uint8_t* data;
-// 	uint8_t width;
-// 	uint8_t height;
-// 	uint8_t bpp;
-// };
-// 
-// struct Frame read_frame() {
-//     int width, height, bpp;
-// 	struct Frame result;
-//     uint8_t* rgb_image = stbi_load("pics/thumb1.jpg", &width, &height, &bpp, 3);
-// 	result.data = rgb_image;
-// 	result.width = width;
-// 	result.height = height;
-// 	result.bpp = bpp;
-//     //stbi_image_free(rgb_image);
-//     return result;
-// }
-
 
 void read_frames(uint8_t* frame, int size, int sizeFrame) {
 	for (int i = 0; i < size; ++i) {
@@ -38,30 +19,15 @@ void read_frames(uint8_t* frame, int size, int sizeFrame) {
 		sprintf(filename, "pics/thumb%d.jpg",i+1);
 		int width, height, bpp;
 		uint8_t* rgb_image = stbi_load(filename, &width, &height, &bpp, 3);
-        frame[i*sizeFrame] = height;
-        frame[i*sizeFrame+1] = width;
-        frame[i*sizeFrame+2] = bpp;
-        for(int j = 0; j < height*width*3; ++j)
-            frame[i*sizeFrame+3+j] = rgb_image[j];
+    printf("%s\n", "debug1");
+    frame[i*sizeFrame] = height;
+    printf("%s\n", "debug2");
+    frame[i*sizeFrame+1] = width;
+    frame[i*sizeFrame+2] = bpp;
+    for(int j = 0; j < height*width*3; ++j)
+      frame[i*sizeFrame+3+j] = rgb_image[j];
 	}
 }
-
-
-// void process_frame_bn(struct Frame* frame, char* filename) {
-// 	for (int i = 0; i < (*frame).width*(*frame).height*3; i+=3)
-// 	{
-// 		int R = (*frame).data[i];
-// 		int G = (*frame).data[i+1];
-// 		int B = (*frame).data[i+2];
-// 		int gray = (R*0.299 + G*0.587 + B*0.114);
-// 		(*frame).data[i]=gray;
-// 		(*frame).data[i+1] = gray;
-// 		(*frame).data[i+2] = gray;
-// 	}
-// 	char ruta [300];
-// 	sprintf(ruta, "pics2/%s",filename);
-// 	stbi_write_jpg(ruta, frame->width, frame->height, 3, frame->data, frame->width*3);
-// }
 
 int max(int n1) {
 	return n1>255 ? 255 : n1;
@@ -140,15 +106,17 @@ int main(int argc, char** argv)
   Nfil = Nfil * 3;
   printf("%dX%d\n", Nfil, Ncol);
 
-  //numBytes = Nfil * Ncol * sizeof(uint8_t);
+  
   numBytes = (frames-2) * (3 + Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
   //Podemos cargarnos la struct y considerar que los 3 primeros valores son height, width y bpp, y los (3*width*height) siguientes el data, todo eso por cada frame.
   //Cada frame ocupa 3*Nfil*Ncol uint8_t.
 
   // Obtener Memoria en el host
+  printf("numbutes: %d\n", numBytes);
   Host_I = (uint8_t*) malloc(numBytes);
-  read_frames(Host_I, frames-2, 3 * Nfil * Ncol);   //multiplicar por 3 ??
+  read_frames(Host_I, frames-2, 3 + Nfil * Ncol);   //multiplicar por 3 ??
 	//////////////////////////////
+  printf("%d %d %d\n", Host_I[0],Host_I[1],Host_I[2]);
 
 
 	cudaEventCreate(&E0);	cudaEventCreate(&E1);
@@ -186,22 +154,21 @@ int main(int argc, char** argv)
 
 	// Obtener el resultado desde el host
 	cudaMemcpy(Host_O, Dev_I, numBytes, cudaMemcpyDeviceToHost);
-  	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
-    printf("Writing...\n");
-    for (int i = 0; i < frames-2; ++i) {
-        printf("\rIn progress %d", i*100/(SIZE-1)); ///'size' no definido (solución: lo pongo en mayusculas, no se si es la variable a la que te querias referir)
-		sprintf(filename, "thumb%d.jpg",i+1);
-        char ruta [300];
-        sprintf(ruta, "pics2/%s",filename);
-        stbi_write_jpg(ruta, Host_O[i+1], Host_O[i], 3, &Host_O[i+3], Host_O[i+1]*3);   //He cambiado out[] por Host_O[]
-    }
+	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
+
+  printf("Writing...\n");
+  for (int i = 0; i < frames-2; ++i) {
+      printf("\rIn progress %d", i*100/(SIZE-1)); ///'size' no definido (solución: lo pongo en mayusculas, no se si es la variable a la que te querias referir)
+	sprintf(filename, "thumb%d.jpg",i+1);
+      char ruta [300];
+      sprintf(ruta, "pics2/%s",filename);
+      stbi_write_jpg(ruta, Host_O[i+1], Host_O[i], 3, &Host_O[i+3], Host_O[i+1]*3);   //He cambiado out[] por Host_O[]
+  }
 
 	// Liberar Memoria del device 
 	cudaFree(Dev_I);
 
 	cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
-
-	//Guardar fotograma
     
 }
 
