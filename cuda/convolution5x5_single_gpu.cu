@@ -38,15 +38,36 @@ int max(int n1) {
 ///CODIGO CUDA//////  |
 ///////////////////   v
 
-__global__ void KernelByN (int Nfil, int Ncol, uint8_t *A, int Nframes, int SzFrame) {
+__global__ void KernelByN (int Nfil, int Ncol, uint8_t *Input, uint8_t *Output, float *kernel, int Nframes, int SzFrame, int szKernel) {
 
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    if(row < Nfil && col < Ncol){
+    int R,G,B;
+    if(row < Nfil && col < Ncol) {
         for (int i = 0; i < Nframes; ++i) {
             int ind = (row * Ncol + col)*3 + i*SzFrame + 3;
-            A[ind] = A[ind+1] = A[ind+2] = (A[ind] + A[ind+1] + A[ind+2])/3;
+            R = G = B = 0;
+            for (int m = 0; m < szKernel; ++m)			// kernel rows
+            {
+
+                for (int n = 0; n < szKernel; ++n)		// kernel columns	
+                {
+
+                    // index of input signal used for checking boundary
+                    int ii = row + (1 - m);
+                    int jj = col + (1 - n);
+                    
+                    //ignore input samples which are out of bound
+                    if(ii >= 0 && ii < Nfil && jj >= 0 && jj < Ncol){
+                        R += Input[i*SzFrame + 3 + (ii*Ncol + jj)*3] * kernel[m*szKernel+n];
+                        G += Input[i*SzFrame + 3 + ((ii*Ncol + jj)*3)+1] * kernel[m*szKernel+n];
+                        B += Input[i*SzFrame + 3 + ((ii*Ncol + jj)*3)+2] * kernel[m*szKernel+n];
+                    }
+                }
+            }
+            Output[ind] = R; 
+            Output[ind+1] = G;
+            Output[ind+2] = B;
         }
     }
 }
@@ -68,10 +89,12 @@ int main(int argc, char** argv)
 
 	float TiempoTotal, TiempoKernel;
 	cudaEvent_t E0, E1, E2, E3;
-
+    float KH[5][5] = {{(float)1/273,(float)4/273,(float)7/273,(float)4/273,(float)1/273},{(float)4/273,(float)16/273,(float)26/273,(float)16/273,(float)4/273},{(float)7/273,(float)26/273,(float)41/273,(float)26/273,(float)7/273},{(float)4/273,(float)16/273,(float)26/273,(float)16/273,(float)4/273},{(float)1/273,(float)4/273,(float)7/273,(float)4/273,(float)1/273}};
 	uint8_t *Host_I;
 	uint8_t *Host_O;
 	uint8_t *Dev_I;
+	uint8_t *Dev_O;
+	float *Kernel;
 
 	//Sacar los fotogramas del video usando FFMPEG
     char *filename = argv[1];
@@ -132,7 +155,7 @@ int main(int argc, char** argv)
     nThreads = SIZE;
 
 	// numero de Blocks en cada dimension
-	int nBlocksFil = (Nfil+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
+	int nBlocksFil = (Nfil/3+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
 	int nBlocksCol = (Ncol+nThreads-1)/nThreads;
     
 
@@ -143,25 +166,33 @@ int main(int argc, char** argv)
     cudaEventSynchronize(E0);
     // Obtener Memoria en el device
     cudaMalloc((uint8_t**)&Dev_I, numBytes);
+    cudaMalloc((uint8_t**)&Dev_O, numBytes);
+    cudaMalloc((float**)&Kernel, 5*5*sizeof(float));
     // Copiar datos desde el host en el device 
     cudaMemcpy(Dev_I, Host_I, numBytes, cudaMemcpyHostToDevice);
+    CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
+    cudaMemcpy(Dev_O, Host_O, numBytes, cudaMemcpyHostToDevice);
+    CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
+    cudaMemcpy(Kernel, KH, 25*sizeof(float), cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
         
     cudaEventRecord(E1, 0);
     cudaEventSynchronize(E1);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I, frames-2, 3 + Nfil * Ncol);
+	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I, Dev_O, Kernel, frames-2, 3 + Nfil * Ncol, 5);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
 
 	// Obtener el resultado desde el host
-	cudaMemcpy(Host_I, Dev_I, numBytes, cudaMemcpyDeviceToHost);
+	cudaMemcpy(Host_O, Dev_O, numBytes, cudaMemcpyDeviceToHost);
 	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
 
 	// Liberar Memoria del device 
 	cudaFree(Dev_I);
+	cudaFree(Dev_O);
+	cudaFree(Kernel);
     cudaEventRecord(E3, 0);
     cudaEventSynchronize(E3);
 
@@ -176,11 +207,11 @@ int main(int argc, char** argv)
     printf("Writing...\n");
     char picname[300];
     for (int i = 0; i < frames-2; ++i) {
-        printf("\rIn progress %d", i*100/(frames-2)); 
+        printf("\rIn progress %d", i*100/(frames-2)); ///'size' no definido (solución: lo pongo en mayusculas, no se si es la variable a la que te querias referir)
         sprintf(picname, "thumb%d.jpg",i+1);
         char ruta [300];
         sprintf(ruta, "pics2/%s",picname);
-        stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I[i*(3 + Nfil * Ncol)+3], Nfil);   //He cambiado out[] por Host_O[]
+        stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_O[i*(3 + Nfil * Ncol)+3], Nfil);   //He cambiado out[] por Host_O[]
     }
     auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
 	sprintf(comando, "%s -pattern_type glob -c:v libx264 -pix_fmt yuv420p %s_out_provisional.mp4",auxCommand, filename);

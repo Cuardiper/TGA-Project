@@ -29,11 +29,6 @@ void read_frames(uint8_t* frame, int size, int sizeFrame) {
     }
 }
 
-int max(int n1) {
-	return n1>255 ? 255 : n1;
-}
-
-
 ////////////////////  |
 ///CODIGO CUDA//////  |
 ///////////////////   v
@@ -42,16 +37,26 @@ __global__ void KernelByN (int Nfil, int Ncol, uint8_t *A, int Nframes, int SzFr
 
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
+
     
     if(row < Nfil && col < Ncol){
         for (int i = 0; i < Nframes; ++i) {
             int ind = (row * Ncol + col)*3 + i*SzFrame + 3;
-            A[ind] = A[ind+1] = A[ind+2] = (A[ind] + A[ind+1] + A[ind+2])/3;
+            int R = A[ind];
+            int G = A[ind+1];
+            int B = A[ind+2];
+            int R1 = (R*0.383 + G*0.769 +  B*0.189);
+            int G1 = (R*0.349 + G*0.686 + B*0.168);
+            int B1 = (R*0.272 + G*0.534 + B*0.131);
+            A[ind] = R1 > 255 ? (uint8_t) 255 : (uint8_t) R1;
+            A[ind+1] = G1 > 255 ? (uint8_t) 255 : (uint8_t) G1;
+            A[ind+2] = B1 > 255 ? (uint8_t) 255 : (uint8_t) B1;
         }
     }
 }
 
 void CheckCudaError(char sms[], int line);
+
 
 
 
@@ -132,7 +137,7 @@ int main(int argc, char** argv)
     nThreads = SIZE;
 
 	// numero de Blocks en cada dimension
-	int nBlocksFil = (Nfil+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
+	int nBlocksFil = (Nfil/3+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
 	int nBlocksCol = (Ncol+nThreads-1)/nThreads;
     
 
@@ -176,7 +181,7 @@ int main(int argc, char** argv)
     printf("Writing...\n");
     char picname[300];
     for (int i = 0; i < frames-2; ++i) {
-        printf("\rIn progress %d", i*100/(frames-2)); 
+        printf("\rIn progress %d", i*100/(frames-2)); ///'size' no definido (solución: lo pongo en mayusculas, no se si es la variable a la que te querias referir)
         sprintf(picname, "thumb%d.jpg",i+1);
         char ruta [300];
         sprintf(ruta, "pics2/%s",picname);

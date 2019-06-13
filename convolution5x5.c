@@ -107,12 +107,12 @@ int main(int argc, char* argv[])
 	}
 	//Sacar los fotogramas del video usando FFMPEG
 	char *filename = argv[1];
- 	system("mkdir pics");
+//  	system("mkdir pics");
 	system("mkdir pics2");
 	char *auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
  	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
-	system(comando);
+// 	system(comando);
 	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
 	system(comando);
 

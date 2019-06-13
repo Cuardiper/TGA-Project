@@ -49,7 +49,7 @@ int max(int n1) {
 }
 
 
-void applyFilter(int size, struct Frame* frames, struct Frame* out) {
+void applyFilter(int size, struct Frame* frames) {
 	printf("Aplicando filtro....\n");
 	char filename[300];
 	clock_t start, end;
@@ -66,7 +66,7 @@ void applyFilter(int size, struct Frame* frames, struct Frame* out) {
 		sprintf(filename, "thumb%d.jpg",i+1);
         char ruta [300];
         sprintf(ruta, "pics2/%s",filename);
-        stbi_write_jpg(ruta, out[i].width, out[i].height, 3, out[i].data, out[i].width*3);
+        stbi_write_jpg(ruta, frames[i].width, frames[i].height, 3, frames[i].data, frames[i].width*3);
     }
 }
 
@@ -78,12 +78,12 @@ int main(int argc, char* argv[])
 	}
 	//Sacar los fotogramas del video usando FFMPEG
 	char *filename = argv[1];
- 	system("mkdir pics");
+//  	system("mkdir pics");
 	system("mkdir pics2");
 	char *auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
  	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
-	system(comando);
+// 	system(comando);
 	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
 	system(comando);
 
@@ -102,9 +102,7 @@ int main(int argc, char* argv[])
 
 	struct Frame fotogramas[frames-2];
 	read_frames(&fotogramas[0],frames-1);
-	int intensidad = 6;
-    struct Frame output[frames-2];
-	applyFilter(frames-1, &fotogramas[0], &output[0]);
+	applyFilter(frames-1, &fotogramas[0]);
 	auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
 	sprintf(comando, "%s -pattern_type glob -c:v libx264 -pix_fmt yuv420p %s_out_provisional.mp4",auxCommand, filename);
 	system(comando);

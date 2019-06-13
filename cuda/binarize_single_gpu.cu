@@ -25,12 +25,8 @@ void read_frames(uint8_t* frame, int size, int sizeFrame) {
         frame[i*sizeFrame+1] = wi;
         frame[i*sizeFrame+2] = bpp;
         for(int j = 0; j < height*width*3; ++j)
-        frame[i*sizeFrame+3+j] = rgb_image[j];
+            frame[i*sizeFrame+3+j] = rgb_image[j];
     }
-}
-
-int max(int n1) {
-	return n1>255 ? 255 : n1;
 }
 
 
@@ -42,16 +38,18 @@ __global__ void KernelByN (int Nfil, int Ncol, uint8_t *A, int Nframes, int SzFr
 
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
+
     
     if(row < Nfil && col < Ncol){
         for (int i = 0; i < Nframes; ++i) {
             int ind = (row * Ncol + col)*3 + i*SzFrame + 3;
-            A[ind] = A[ind+1] = A[ind+2] = (A[ind] + A[ind+1] + A[ind+2])/3;
+            A[ind] = A[ind+1] = A[ind+2] = (A[ind] + A[ind+1] + A[ind+2])/3 > 127 ? (uint8_t) 255 : (uint8_t) 0;
         }
     }
 }
 
 void CheckCudaError(char sms[], int line);
+
 
 
 
@@ -176,7 +174,7 @@ int main(int argc, char** argv)
     printf("Writing...\n");
     char picname[300];
     for (int i = 0; i < frames-2; ++i) {
-        printf("\rIn progress %d", i*100/(frames-2)); 
+        printf("\rIn progress %d", i*100/(frames-2)); ///'size' no definido (solución: lo pongo en mayusculas, no se si es la variable a la que te querias referir)
         sprintf(picname, "thumb%d.jpg",i+1);
         char ruta [300];
         sprintf(ruta, "pics2/%s",picname);

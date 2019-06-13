@@ -12,8 +12,8 @@
 int kRows = 3;
 int kCols = 3;
 // double kernel[3][3] = {{(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}}; //Blur normal
-double kernel[3][3] = {{-1,-1,-1}, {-1,8,-1}, {-1,-1,-1}}; //Bordes
-// double kernel[3][3] = {{0,-1,0}, {-1,5,-1}, {0,-1,0}}; //Sharpening
+// double kernel[3][3] = {{-1,-1,-1}, {-1,8,-1}, {-1,-1,-1}}; //Bordes
+double kernel[3][3] = {{0,-1,0}, {-1,5,-1}, {0,-1,0}}; //Sharpening
 // double kernel[3][3] = {{(double)1/16,(double)1/8,(double)1/16}, {(double)1/8,(double)1/4,(double)1/8}, {(double)1/16,(double)1/8,(double)1/16}}; //Gaussian blur
 
 
@@ -110,12 +110,12 @@ int main(int argc, char* argv[])
 	}
 	//Sacar los fotogramas del video usando FFMPEG
 	char *filename = argv[1];
- 	system("mkdir pics");
+//  	system("mkdir pics");
 	system("mkdir pics2");
 	char *auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
  	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
-	system(comando);
+// 	system(comando);
 	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
 	system(comando);
 
