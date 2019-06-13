@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
 	system("mkdir pics2");
 	char *auxCommand = "pics/thumb%d.jpg -hide_banner";
 	char comando[300];
-	//sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
+	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
 	system(comando);
 	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
 	system(comando);

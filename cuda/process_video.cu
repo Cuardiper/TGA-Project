@@ -31,6 +31,7 @@
 //     return result;
 // }
 
+
 void read_frames(uint8_t* frame, int size, int sizeFrame) {
 	for (int i = 0; i < size; ++i) {
 		char filename[300];
@@ -40,7 +41,7 @@ void read_frames(uint8_t* frame, int size, int sizeFrame) {
         frame[i*sizeFrame] = height;
         frame[i*sizeFrame+1] = width;
         frame[i*sizeFrame+2] = bpp;
-        for(int j = 0; j < height*width*3; ++i)
+        for(int j = 0; j < height*width*3; ++j)
             frame[i*sizeFrame+3+j] = rgb_image[j];
 	}
 }
@@ -93,32 +94,33 @@ void CheckCudaError(char sms[], int line);
 int main(int argc, char** argv)
 {
     
-    if (argc < 2) {
+  if (argc < 2) {
 		printf("Necesito la ruta del video en mp4!\n");
 		return -1;
 	}
-	unsigned int Nfil, Ncol;
-  	unsigned int numBytes;
+	int Nfil, Ncol;
+	unsigned int numBytes;
 	unsigned int nThreads;
 
 	float TiempoTotal, TiempoKernel;
-  	cudaEvent_t E0, E1, E2, E3;
+	cudaEvent_t E0, E1, E2, E3;
 
-  	uint8_t *Host_I;
-  	uint8_t *Host_O;
-  	uint8_t *Dev_I;
+	uint8_t *Host_I;
+	uint8_t *Host_O;
+	uint8_t *Dev_I;
 
-  	///Leer jpeg de la carpeta////
 	//Sacar los fotogramas del video usando FFMPEG
-	char *filename = argv[1];
-	system("mkdir pics");
-	system("mkdir pics2");
-	char *auxCommand = "pics/thumb%d.jpg -hide_banner";
-	char comando[300];
-	sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
-	system(comando);
-	sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
-	system(comando);
+  char *filename = argv[1];
+  system("mkdir pics");
+  system("mkdir pics2");
+  char *auxCommand = "pics/thumb%d.jpg -hide_banner";
+  char comando[300];
+  //sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
+  system(comando);
+  //sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
+  system(comando);
+
+  printf("%s\n", "holaaaa!!!");
 
 	//Contar el numero de fotogramas obtenidos
 	DIR *d;
@@ -133,44 +135,44 @@ int main(int argc, char** argv)
 	}
 	printf("Leyendo %d fotogramas...\n",frames-2);
 
-    Host_I = (uint8_t*) malloc(numBytes);
-    read_frames(Host_I, frames-1, 3 * Nfil * Ncol);
-  	Ncol = Host_I[0];
-  	Nfil = Host_I[1] * 3;
-  	printf("%dX%d\n", Nfil, Ncol);
-  	//////////////////////////////
+  int bpp;
+  stbi_load("pics/thumb1.jpg", &Nfil, &Ncol, &bpp, 3);
+  Nfil = Nfil * 3;
+  printf("%dX%d\n", Nfil, Ncol);
 
-//   	numBytes = Nfil * Ncol * sizeof(uint8_t);
-  	numBytes = (frames-2) * (3 + Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
-    //Podemos cargarnos la struct y considerar que los 3 primeros valores son height, width y bpp, y los (3*width*height) siguientes el data, todo eso por cada frame.
-    //Cada frame ocupa 3*Nfil*Ncol uint8_t.
-    
-  	cudaEventCreate(&E0);	cudaEventCreate(&E1);
-	cudaEventCreate(&E2);	cudaEventCreate(&E3);
+  //numBytes = Nfil * Ncol * sizeof(uint8_t);
+  numBytes = (frames-2) * (3 + Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
+  //Podemos cargarnos la struct y considerar que los 3 primeros valores son height, width y bpp, y los (3*width*height) siguientes el data, todo eso por cada frame.
+  //Cada frame ocupa 3*Nfil*Ncol uint8_t.
 
-	// Obtener Memoria en el host
-//     output = (uint8_t*) malloc(numBytes);
-    // Inicializa con los datos de la imagen leída
+  // Obtener Memoria en el host
+  Host_I = (uint8_t*) malloc(numBytes);
+  read_frames(Host_I, frames-2, 3 * Nfil * Ncol);   //multiplicar por 3 ??
+	//////////////////////////////
 
-    // Obtener Memoria en el device
-  	cudaMalloc((uint8_t**)&Dev_I, numBytes);
-  	// Copiar datos desde el host en el device 
-	cudaMemcpy(Dev_I, Host_I, numBytes, cudaMemcpyHostToDevice);
-	CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
+
+	cudaEventCreate(&E0);	cudaEventCreate(&E1);
+  cudaEventCreate(&E2);	cudaEventCreate(&E3);
+
+  // Obtener Memoria en el device
+	cudaMalloc((uint8_t**)&Dev_I, numBytes);
+	// Copiar datos desde el host en el device 
+  cudaMemcpy(Dev_I, Host_I, numBytes, cudaMemcpyHostToDevice);
+  CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
   	
+  //
+	// KERNEL ELEMENTO a ELEMENTO
 	//
-  	// KERNEL ELEMENTO a ELEMENTO
-  	//
 
 	// numero de Threads en cada dimension 
-  	nThreads = SIZE;
+  nThreads = SIZE;
 
 	// numero de Blocks en cada dimension
-  	int nBlocksFil = (Nfil+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
-  	int nBlocksCol = (Ncol+nThreads-1)/nThreads;
+	int nBlocksFil = (Nfil+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
+	int nBlocksCol = (Ncol+nThreads-1)/nThreads;
 
-  	dim3 dimGridE(nBlocksCol, nBlocksFil, 1);
-  	dim3 dimBlockE(nThreads, nThreads, 1);
+	dim3 dimGridE(nBlocksCol, nBlocksFil, 1);
+	dim3 dimBlockE(nThreads, nThreads, 1);
 
 	cudaEventRecord(E0, 0);
 	cudaEventSynchronize(E0);
