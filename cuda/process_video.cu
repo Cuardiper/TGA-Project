@@ -19,10 +19,10 @@ void read_frames(uint8_t* frame, int size, int sizeFrame) {
 		sprintf(filename, "pics/thumb%d.jpg",i+1);
 		int width, height, bpp;
 		uint8_t* rgb_image = stbi_load(filename, &width, &height, &bpp, 3);
-    printf("%s\n", "debug1");
-    frame[i*sizeFrame] = height;
-    printf("%s\n", "debug2");
-    frame[i*sizeFrame+1] = width;
+    uint8_t he = height;
+    uint8_t wi = width;
+    frame[i*sizeFrame] = he;
+    frame[i*sizeFrame+1] = wi;
     frame[i*sizeFrame+2] = bpp;
     for(int j = 0; j < height*width*3; ++j)
       frame[i*sizeFrame+3+j] = rgb_image[j];
@@ -114,6 +114,11 @@ int main(int argc, char** argv)
   // Obtener Memoria en el host
   printf("numbutes: %d\n", numBytes);
   Host_I = (uint8_t*) malloc(numBytes);
+  if(Host_I == NULL)
+  {
+    printf("Memory allocation failed\n");
+    return;
+  }
   read_frames(Host_I, frames-2, 3 + Nfil * Ncol);   //multiplicar por 3 ??
 	//////////////////////////////
   printf("%d %d %d\n", Host_I[0],Host_I[1],Host_I[2]);
