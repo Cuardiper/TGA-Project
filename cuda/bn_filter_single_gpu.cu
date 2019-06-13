@@ -19,14 +19,14 @@ void read_frames(uint8_t* frame, int size, int sizeFrame) {
 		sprintf(filename, "pics/thumb%d.jpg",i+1);
 		int width, height, bpp;
 		uint8_t* rgb_image = stbi_load(filename, &width, &height, &bpp, 3);
-    uint8_t he = height;
-    uint8_t wi = width;
-    frame[i*sizeFrame] = he;
-    frame[i*sizeFrame+1] = wi;
-    frame[i*sizeFrame+2] = bpp;
-    for(int j = 0; j < height*width*3; ++j)
-      frame[i*sizeFrame+3+j] = rgb_image[j];
-	}
+        uint8_t he = height;
+        uint8_t wi = width;
+        frame[i*sizeFrame] = he;
+        frame[i*sizeFrame+1] = wi;
+        frame[i*sizeFrame+2] = bpp;
+        for(int j = 0; j < height*width*3; ++j)
+        frame[i*sizeFrame+3+j] = rgb_image[j];
+    }
 }
 
 int max(int n1) {
@@ -76,17 +76,15 @@ int main(int argc, char** argv)
 	uint8_t *Dev_I;
 
 	//Sacar los fotogramas del video usando FFMPEG
-  char *filename = argv[1];
-  system("mkdir pics");
-  system("mkdir pics2");
-  char *auxCommand = "pics/thumb%d.jpg -hide_banner";
-  char comando[300];
-  //sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
-  system(comando);
-  //sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
-  system(comando);
-
-  printf("%s\n", "holaaaa!!!");
+    char *filename = argv[1];
+//     system("mkdir pics");
+    system("mkdir pics2");
+    char *auxCommand = "pics/thumb%d.jpg -hide_banner";
+    char comando[300];
+    sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
+//     system(comando);
+    sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
+    system(comando);
 
 	//Contar el numero de fotogramas obtenidos
 	DIR *d;
@@ -101,44 +99,45 @@ int main(int argc, char** argv)
 	}
 	printf("Leyendo %d fotogramas...\n",frames-2);
 
-  int bpp;
-  stbi_load("pics/thumb1.jpg", &Nfil, &Ncol, &bpp, 3);
-  Nfil = Nfil * 3;
-  printf("%dX%d\n", Nfil, Ncol);
+    int bpp;
+    stbi_load("pics/thumb1.jpg", &Nfil, &Ncol, &bpp, 3);
+    Nfil = Nfil * 3;
 
-  
-  numBytes = (frames-2) * (3 + Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
-  //Podemos cargarnos la struct y considerar que los 3 primeros valores son height, width y bpp, y los (3*width*height) siguientes el data, todo eso por cada frame.
-  //Cada frame ocupa 3*Nfil*Ncol uint8_t.
+    numBytes = (frames-2) * (3 + Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
+    //Podemos cargarnos la struct y considerar que los 3 primeros valores son height, width y bpp, y los (3*width*height) siguientes el data, todo eso por cada frame.
+    //Cada frame ocupa 3*Nfil*Ncol uint8_t.
 
-  // Obtener Memoria en el host
-  printf("numbutes: %d\n", numBytes);
-  Host_I = (uint8_t*) malloc(numBytes);
-  if(Host_I == NULL)
-  {
+    // Obtener Memoria en el host
+    printf("numbutes: %d\n", numBytes);
+    Host_I = (uint8_t*) malloc(numBytes);
+    if(Host_I == NULL)
+    {
     printf("Memory allocation failed\n");
     return;
-  }
-  read_frames(Host_I, frames-2, 3 + Nfil * Ncol);   //multiplicar por 3 ??
-	//////////////////////////////
-  printf("%d %d %d\n", Host_I[0],Host_I[1],Host_I[2]);
-
+    }
+    Host_O = (uint8_t*) malloc(numBytes);
+    if(Host_O == NULL)
+    {
+        printf("Memory allocation failed\n");
+        return;
+    }
+    read_frames(Host_I, frames-2, 3 + Nfil * Ncol);
 
 	cudaEventCreate(&E0);	cudaEventCreate(&E1);
-  cudaEventCreate(&E2);	cudaEventCreate(&E3);
+    cudaEventCreate(&E2);	cudaEventCreate(&E3);
 
-  // Obtener Memoria en el device
-	cudaMalloc((uint8_t**)&Dev_I, numBytes);
-	// Copiar datos desde el host en el device 
-  cudaMemcpy(Dev_I, Host_I, numBytes, cudaMemcpyHostToDevice);
-  CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
-  	
-  //
-	// KERNEL ELEMENTO a ELEMENTO
-	//
+    // Obtener Memoria en el device
+    cudaMalloc((uint8_t**)&Dev_I, numBytes);
+    // Copiar datos desde el host en el device 
+    cudaMemcpy(Dev_I, Host_I, numBytes, cudaMemcpyHostToDevice);
+    CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
+        
+    //
+    // KERNEL ELEMENTO a ELEMENTO
+    //
 
-	// numero de Threads en cada dimension 
-  nThreads = SIZE;
+    // numero de Threads en cada dimension 
+    nThreads = SIZE;
 
 	// numero de Blocks en cada dimension
 	int nBlocksFil = (Nfil+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
@@ -161,19 +160,30 @@ int main(int argc, char** argv)
 	cudaMemcpy(Host_O, Dev_I, numBytes, cudaMemcpyDeviceToHost);
 	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
 
-  printf("Writing...\n");
-  for (int i = 0; i < frames-2; ++i) {
-      printf("\rIn progress %d", i*100/(SIZE-1)); ///'size' no definido (solución: lo pongo en mayusculas, no se si es la variable a la que te querias referir)
-	sprintf(filename, "thumb%d.jpg",i+1);
-      char ruta [300];
-      sprintf(ruta, "pics2/%s",filename);
-      stbi_write_jpg(ruta, Host_O[i+1], Host_O[i], 3, &Host_O[i+3], Host_O[i+1]*3);   //He cambiado out[] por Host_O[]
-  }
+    printf("Writing...\n");
+    char picname[300];
+    for (int i = 0; i < frames-2; ++i) {
+        printf("\rIn progress %d", i*100/(SIZE-1)); ///'size' no definido (solución: lo pongo en mayusculas, no se si es la variable a la que te querias referir)
+        sprintf(picname, "thumb%d.jpg",i+1);
+        char ruta [300];
+        sprintf(ruta, "pics2/%s",picname);
+        stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_O[i*(3 + Nfil * Ncol)+3], Nfil);   //He cambiado out[] por Host_O[]
+    }
 
 	// Liberar Memoria del device 
 	cudaFree(Dev_I);
 
 	cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
+    auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
+	sprintf(comando, "%s -pattern_type glob -c:v libx264 -pix_fmt yuv420p %s_out_provisional.mp4",auxCommand, filename);
+	system(comando);
+	sprintf(comando,"ffmpeg -i %s_out_provisional.mp4 -i audio.aac -c:v copy -c:a aac -strict experimental %s_out.mp4",filename,filename);
+	system(comando);
+	sprintf(comando,"rm %s_out_provisional.mp4",filename);
+	system(comando);
+	system("rm audio.aac");
+	system("rm -rf pics2");
+    return 0;
     
 }
 

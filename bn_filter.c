@@ -9,13 +9,6 @@
 #include <time.h>
 #include <dirent.h>
 
-int kRows = 3;
-int kCols = 3;
-// double kernel[3][3] = {{(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}, {(double)1/9,(double)1/9,(double)1/9}};
-double kernel[3][3] = {{-1,-1,-1}, {-1,8,-1}, {-1,-1,-1}};
-// double kernel[3][3] = {{0,-1,0}, {-1,5,-1}, {0,-1,0}};
-// double kernel[3][3] = {{(double)1/16,(double)1/8,(double)1/16}, {(double)1/8,(double)1/4,(double)1/8}, {(double)1/16,(double)1/8,(double)1/16}};
-// double kernel[5][5] = {{(double)1/273,(double)4/273,(double)7/273,(double)4/273,(double)1/273},{(double)4/273,(double)16/273,(double)26/273,(double)16/273,(double)4/273},{(double)7/273,(double)26/273,(double)41/273,(double)26/273,(double)7/273},{(double)4/273,(double)16/273,(double)26/273,(double)16/273,(double)4/273},{(double)1/273,(double)4/273,(double)7/273,(double)4/273,(double)1/273}};
 
 struct Frame {
 	uint8_t* data;
@@ -35,61 +28,26 @@ void read_frames(struct Frame* frame, int size) {
 		frame[i].width = width;
 		frame[i].height = height;
 		frame[i].bpp = bpp;
-		//stbi_image_free(rgb_image);
 	}
 }
 
-// void inicializa(struct Frame* frame, int size){
-//     (*frame).data = malloc(size*sizeof(uint8_t));
-// 	for (int i = 0; i < size; i++)
-// 	{
-//         printf("Ini %d\n",i);
-// 		(*frame).data[i] = 0;
-// 	}
-// }
-
-void process_convolution(struct Frame* frame, struct Frame* out, int intensity){
-    int rows = frame->height;
-    int cols = frame->width;
-    (*out).height = rows;
-    (*out).width = cols;
-    (*out).data = malloc(rows*cols*3*sizeof(uint8_t));
-	for (int i = 0; i < intensity; i++) {
-//         printf("Intensity %d\n",i);
-		//find center position of kernel
-		int kCenterX = kCols / 2;
-		int kCenterY = kRows / 2;
-		for (int i = 0; i < rows; ++i)					// rows
-		{
-			for (int j = 0; j < cols; ++j)				// columns
-			{
-                (*out).data[(i*cols+j)*3] = 0;
-                (*out).data[(i*cols+j)*3+1] = 0;
-                (*out).data[(i*cols+j)*3+2] = 0;
-				for (int m = 0; m < kRows; ++m)			// kernel rows
-				{
-
-					for (int n = 0; n < kCols; ++n)		// kernel columns	
-					{
-
-						// index of input signal used for checking boundary
-						int ii = i + (kCenterY - m);
-						int jj = j + (kCenterX - n);
-
-						//ignore input samples which are out of bound
-						if(ii >= 0 && ii < rows && jj >= 0 && jj < cols){
-
-							(*out).data[(i*cols+j)*3] += (*frame).data[(ii*cols + jj)*3] * kernel[m][n];
-							(*out).data[((i*cols+j)*3)+1] += (*frame).data[((ii*cols + jj)*3)+1] * kernel[m][n];
-							(*out).data[((i*cols+j)*3)+2] += (*frame).data[((ii*cols + jj)*3)+2] * kernel[m][n];
-						}
-					}
-				}
-			}
-		}
-		*frame = *out;
+void process_frame_bn(struct Frame* frame) {
+	for (int i = 0; i < (*frame).width*(*frame).height*3; i+=3)
+	{
+		int R = (*frame).data[i];
+		int G = (*frame).data[i+1];
+		int B = (*frame).data[i+2];
+		int gray = (R*0.299 + G*0.587 + B*0.114);
+		(*frame).data[i]=gray;
+		(*frame).data[i+1] = gray;
+		(*frame).data[i+2] = gray;
 	}
 }
+
+int max(int n1) {
+	return n1>255 ? 255 : n1;
+}
+
 
 void applyFilter(int size, struct Frame* frames, struct Frame* out) {
 	printf("Aplicando filtro....\n");
@@ -98,7 +56,7 @@ void applyFilter(int size, struct Frame* frames, struct Frame* out) {
 	start = clock();
 	int intensidad = 1;
 	for (int i = 0; i < size-1; ++i) {
-		process_convolution(&frames[i], &out[i], intensidad);
+		process_frame_bn(&frames[i]);
 	}
 	end = clock();
 	printf("Tiempo total kernel secuencial: %f\n",((double) (end-start)/CLOCKS_PER_SEC));
