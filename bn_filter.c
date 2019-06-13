@@ -37,7 +37,7 @@ void process_frame_bn(struct Frame* frame) {
 		int R = (*frame).data[i];
 		int G = (*frame).data[i+1];
 		int B = (*frame).data[i+2];
-		int gray = (R*0.299 + G*0.587 + B*0.114);
+		int gray = (R+G+B)/3;
 		(*frame).data[i]=gray;
 		(*frame).data[i+1] = gray;
 		(*frame).data[i+2] = gray;
