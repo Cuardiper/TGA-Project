@@ -49,8 +49,8 @@ __global__ void KernelByN (int Nfil, int Ncol, uint8_t *Input, uint8_t *Output, 
                 {
 
                     // index of input signal used for checking boundary
-                    int ii = row + (2 - m);
-                    int jj = col + (2 - n);
+                    int ii = row + (1 - m);
+                    int jj = col + (1 - n);
                     
                     //ignore input samples which are out of bound
                     if(ii >= 0 && ii < Nfil && jj >= 0 && jj < Ncol){
@@ -153,7 +153,7 @@ int main(int argc, char** argv)
 
 	// numero de Blocks en cada dimension
 	int nBlocksFil = (Nfil/3+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
-	int nBlocksCol = (Ncol+nThreads-1)/nThreads;
+	int nBlocksCol = (Ncol*2+nThreads-1)/nThreads;
     
 
 	dim3 dimGridE(nBlocksCol, nBlocksFil, 1);

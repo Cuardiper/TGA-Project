@@ -11,7 +11,7 @@
 
 int kRows = 5;
 int kCols = 5;
-double kernel[5][5] = {{(double)1/273,(double)4/273,(double)7/273,(double)4/273,(double)1/273},{(double)4/273,(double)16/273,(double)26/273,(double)16/273,(double)4/273},{(double)7/273,(double)26/273,(double)41/273,(double)26/273,(double)7/273},{(double)4/273,(double)16/273,(double)26/273,(double)16/273,(double)4/273},{(double)1/273,(double)4/273,(double)7/273,(double)4/273,(double)1/273}};
+double kernel[5][5] = {{(double)1/256,(double)4/256,(double)6/256,(double)4/256,(double)1/256},{(double)4/256,(double)16/256,(double)24/256,(double)16/256,(double)4/256},{(double)6/256,(double)24/256,(double)36/256,(double)24/256,(double)6/256},{(double)4/256,(double)16/256,(double)24/256,(double)16/256,(double)4/256},{(double)1/256,(double)4/256,(double)6/256,(double)4/256,(double)1/256}};
 
 struct Frame {
 	uint8_t* data;

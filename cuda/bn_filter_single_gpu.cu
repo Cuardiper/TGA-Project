@@ -122,11 +122,11 @@ int main(int argc, char** argv)
     nThreads = SIZE;
 
 	// numero de Blocks en cada dimension
-	int nBlocksFil = (Nfil+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
-	int nBlocksCol = (Ncol+nThreads-1)/nThreads;
+	int nBlocksFil = (Nfil/3+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
+	int nBlocksCol = (Ncol*2+nThreads-1)/nThreads;
     
 
-	dim3 dimGridE(nBlocksCol, nBlocksFil, 1);
+	dim3 dimGridE(nBlocksFil, nBlocksCol, 1);
 	dim3 dimBlockE(nThreads, nThreads, 1);
     
     cudaEventRecord(E0, 0);

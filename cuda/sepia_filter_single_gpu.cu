@@ -132,11 +132,11 @@ int main(int argc, char** argv)
     nThreads = SIZE;
 
 	// numero de Blocks en cada dimension
-	int nBlocksFil = (Nfil+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
-	int nBlocksCol = (Ncol+nThreads-1)/nThreads;
+	int nBlocksFil = (Nfil/3+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
+	int nBlocksCol = (Ncol*2+nThreads-1)/nThreads;
     
 
-	dim3 dimGridE(nBlocksCol, nBlocksFil, 1);
+	dim3 dimGridE(nBlocksFil, nBlocksCol, 1);
 	dim3 dimBlockE(nThreads, nThreads, 1);
     
     cudaEventRecord(E0, 0);
@@ -182,7 +182,7 @@ int main(int argc, char** argv)
         sprintf(ruta, "pics2/%s",picname);
         stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I[i*Nfil * Ncol], Nfil);   //He cambiado out[] por Host_O[]
     }
-    printf("\nRemoving residuals\n");
+    printf("\nRemoving residuals...\n");
     auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
 	sprintf(comando, "%s -pattern_type glob -c:v libx264 -pix_fmt yuv420p %s_out_provisional.mp4",auxCommand, filename);
 	system(comando);
