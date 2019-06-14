@@ -1,0 +1,99 @@
+CUDA_HOME   = /Soft/cuda/8.0.61
+
+NVCC        = $(CUDA_HOME)/bin/nvcc
+NVCC_FLAGS  = -O3 -Wno-deprecated-gpu-targets -I$(CUDA_HOME)/include -arch=sm_20 --ptxas-options=-v -I$(CUDA_HOME)/sdk/CUDALibraries/common/inc
+LD_FLAGS    = -Wno-deprecated-gpu-targets -lcudart -Xlinker -rpath,$(CUDA_HOME)/lib64 -I$(CUDA_HOME)/sdk/CUDALibraries/common/lib
+PROG_FLAGS  = -DSIZE=32
+
+EXE01	        = bn1.exe
+OBJ01	        = bn1.0
+EXE02	        = sepia1.exe
+OBJ02	        = sepia1.o
+EXE03	        = binarize1.exe
+OBJ03	        = binarize1.o
+EXE04	        = conv3x3_1.exe
+OBJ04	        = conv3x3_1.o
+EXE05	        = conv5x5_1.exe
+OBJ05	        = conv5x5_1.o
+EXE06	        = bn4.exe
+OBJ06	        = bn4.0
+EXE07	        = sepia4.exe
+OBJ07	        = sepia4.o
+EXE08	        = binarize4.exe
+OBJ08	        = binarize4.o
+EXE09	        = conv3x3_4.exe
+OBJ09	        = conv3x3_4.o
+EXE10	        = conv5x5_4.exe
+OBJ10	        = conv5x5_4.o
+
+
+default: $(EXE01) $(EXE02) $(EXE03) $(EXE04) $(EXE05) $(EXE06) $(EXE07) $(EXE08) $(EXE09) $(EXE10) 
+
+$(OBJ01): bn_filter_single_gpu.cu
+	$(NVCC) -c -o $@ bn_filter_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+
+$(OBJ02): sepia_filter_single_gpu.cu
+	$(NVCC) -c -o $@ sepia_filter_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+
+$(OBJ03): bn_filter_single_gpu.cu
+	$(NVCC) -c -o $@ bn_filter_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+
+$(OBJ04): sepia_filter_single_gpu.cu
+	$(NVCC) -c -o $@ sepia_filter_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+
+$(OBJ05): bn_filter_single_gpu.cu
+	$(NVCC) -c -o $@ bn_filter_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+
+$(OBJ06): bn_filter_multi_gpu.cu
+	$(NVCC) -c -o $@ bn_filter_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+
+$(OBJ07): sepia_filter_multi_gpu.cu
+	$(NVCC) -c -o $@ sepia_filter_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+
+$(OBJ08): bn_filter_multi_gpu.cu
+	$(NVCC) -c -o $@ bn_filter_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+
+$(OBJ09): sepia_filter_multi_gpu.cu
+	$(NVCC) -c -o $@ sepia_filter_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+
+$(OBJ10): bn_filter_multi_gpu.cu
+	$(NVCC) -c -o $@ bn_filter_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+
+$(EXE01): $(OBJ01)
+	$(NVCC) $(OBJ01) -o $(EXE01) $(LD_FLAGS)
+
+$(EXE02): $(OBJ02)
+	$(NVCC) $(OBJ02) -o $(EXE02) $(LD_FLAGS)
+
+$(EXE03): $(OBJ03)
+	$(NVCC) $(OBJ03) -o $(EXE03) $(LD_FLAGS)
+
+$(EXE04): $(OBJ04)
+	$(NVCC) $(OBJ04) -o $(EXE04) $(LD_FLAGS)
+
+$(EXE05): $(OBJ05)
+	$(NVCC) $(OBJ05) -o $(EXE05) $(LD_FLAGS)
+
+$(EXE06): $(OBJ06)
+	$(NVCC) $(OBJ06) -o $(EXE06) $(LD_FLAGS)
+
+$(EXE07): $(OBJ07)
+	$(NVCC) $(OBJ07) -o $(EXE07) $(LD_FLAGS)
+
+$(EXE08): $(OBJ08)
+	$(NVCC) $(OBJ08) -o $(EXE08) $(LD_FLAGS)
+
+$(EXE09): $(OBJ09)
+	$(NVCC) $(OBJ09) -o $(EXE09) $(LD_FLAGS)
+
+$(EXE10): $(OBJ10)
+	$(NVCC) $(OBJ10) -o $(EXE10) $(LD_FLAGS)
+
+all:	$(EXE01) $(EXE02) $(EXE03) $(EXE04) $(EXE05) $(EXE06) $(EXE07) $(EXE08) $(EXE09) $(EXE10) 
+
+single: $(EXE01) $(EXE02) $(EXE03) $(EXE04) $(EXE05)
+
+multi: $(EXE06) $(EXE07) $(EXE08) $(EXE09) $(EXE10) 
+
+clean:
+	rm -rf *.o* *.e*
