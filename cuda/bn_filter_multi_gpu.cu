@@ -32,26 +32,16 @@ __global__ void KernelByN (int Nfil, int Ncol, uint8_t *A, int Nframes, int SzFr
 
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
-
     
     if(row < Nfil && col < Ncol){
         for (int i = 0; i < Nframes; ++i) {
             int ind = (row * Ncol + col)*3 + i*SzFrame;
-            int R = A[ind];
-            int G = A[ind+1];
-            int B = A[ind+2];
-            int R1 = (R*0.383 + G*0.769 +  B*0.189);
-            int G1 = (R*0.349 + G*0.686 + B*0.168);
-            int B1 = (R*0.272 + G*0.534 + B*0.131);
-            A[ind] = R1 > 255 ? (uint8_t) 255 : (uint8_t) R1;
-            A[ind+1] = G1 > 255 ? (uint8_t) 255 : (uint8_t) G1;
-            A[ind+2] = B1 > 255 ? (uint8_t) 255 : (uint8_t) B1;
+            A[ind] = A[ind+1] = A[ind+2] = (A[ind] + A[ind+1] + A[ind+2])/3;
         }
     }
 }
 
 void CheckCudaError(char sms[], int line);
-
 
 
 
@@ -170,8 +160,8 @@ int main(int argc, char** argv)
     printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
     printf("Tiempo Kernel: %4.6f milseg\n", TiempoKernel);
     printf("Bandwidth: %4.6f GB/s\n", (float)(((float)(numBytes/TiempoKernel))/1000000));
-    printf("Rendimiento Global: %4.2f GFLOPS\n", (18.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoTotal));
-    printf("Rendimiento Kernel: %4.2f GFLOPS\n", (18.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoKernel));
+    printf("Rendimiento Global: %4.2f GFLOPS\n", (3.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoTotal));
+    printf("Rendimiento Kernel: %4.2f GFLOPS\n", (3.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoKernel));
 	cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
     printf("Writing...\n");
     char picname[300];

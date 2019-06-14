@@ -24,34 +24,50 @@ void read_frames(uint8_t* frame, int size, int sizeFrame) {
     }
 }
 
+int max(int n1) {
+	return n1>255 ? 255 : n1;
+}
+
+
 ////////////////////  |
 ///CODIGO CUDA//////  |
 ///////////////////   v
 
-__global__ void KernelByN (int Nfil, int Ncol, uint8_t *A, int Nframes, int SzFrame) {
+__global__ void KernelByN (int Nfil, int Ncol, uint8_t *Input, uint8_t *Output, float *kernel, int Nframes, int SzFrame, int szKernel) {
 
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
-
-    
-    if(row < Nfil && col < Ncol){
+    int R,G,B;
+    if(row < Nfil && col < Ncol) {
         for (int i = 0; i < Nframes; ++i) {
-            int ind = (row * Ncol + col)*3 + i*SzFrame;
-            int R = A[ind];
-            int G = A[ind+1];
-            int B = A[ind+2];
-            int R1 = (R*0.383 + G*0.769 +  B*0.189);
-            int G1 = (R*0.349 + G*0.686 + B*0.168);
-            int B1 = (R*0.272 + G*0.534 + B*0.131);
-            A[ind] = R1 > 255 ? (uint8_t) 255 : (uint8_t) R1;
-            A[ind+1] = G1 > 255 ? (uint8_t) 255 : (uint8_t) G1;
-            A[ind+2] = B1 > 255 ? (uint8_t) 255 : (uint8_t) B1;
+            int ind = (row * Ncol + col)*3 + i*SzFrame + 3;
+            R=G=B=0;
+            for (int m = 0; m < szKernel; ++m)			// kernel rows
+            {
+
+                for (int n = 0; n < szKernel; ++n)		// kernel columns	
+                {
+
+                    // index of input signal used for checking boundary
+                    int ii = row + (1 - m);
+                    int jj = col + (1 - n);
+                    
+                    //ignore input samples which are out of bound
+                    if(ii >= 0 && ii < Nfil && jj >= 0 && jj < Ncol){
+                        R += Input[i*SzFrame + 3 + (ii*Ncol + jj)*3] * kernel[m*szKernel+n];
+                        G += Input[i*SzFrame + 3 + (ii*Ncol + jj)*3+1] * kernel[m*szKernel+n];
+                        B += Input[i*SzFrame + 3 + (ii*Ncol + jj)*3+2] * kernel[m*szKernel+n];
+                    }
+                }
+            }
+            Output[ind] = R; 
+            Output[ind+1] = G;
+            Output[ind+2] = B;
         }
     }
 }
 
 void CheckCudaError(char sms[], int line);
-
 
 
 
@@ -68,10 +84,14 @@ int main(int argc, char** argv)
 
 	float TiempoTotal, TiempoKernel;
 	cudaEvent_t E0, E1, E2, E3;
-
+//     float KH[9] = {0,-1,0,-1,5,-1,0,-1,0};
+    float KH[3][3] = {{(float)1/16,(float)1/8,(float)1/16}, {(float)1/8,(float)1/4,(float)1/8}, {(float)1/16,(float)1/8,(float)1/16}};
+//     static float *KH = 
 	uint8_t *Host_I;
 	uint8_t *Host_O;
 	uint8_t *Dev_I;
+	uint8_t *Dev_O;
+	float *Kernel;
 
 	//Sacar los fotogramas del video usando FFMPEG
     char *filename = argv[1];
@@ -119,7 +139,7 @@ int main(int argc, char** argv)
         printf("Memory allocation failed\n");
         return;
     }
-    read_frames(Host_I, frames-2, Nfil * Ncol);
+    read_frames(Host_I, frames-2, 3 + Nfil * Ncol);
 
 	cudaEventCreate(&E0);	cudaEventCreate(&E1);
     cudaEventCreate(&E2);	cudaEventCreate(&E3);
@@ -136,32 +156,40 @@ int main(int argc, char** argv)
 	int nBlocksCol = (Ncol*2+nThreads-1)/nThreads;
     
 
-	dim3 dimGridE(nBlocksFil, nBlocksCol, 1);
+	dim3 dimGridE(nBlocksCol, nBlocksFil, 1);
 	dim3 dimBlockE(nThreads, nThreads, 1);
     
     cudaEventRecord(E0, 0);
     cudaEventSynchronize(E0);
     // Obtener Memoria en el device
     cudaMalloc((uint8_t**)&Dev_I, numBytes);
+    cudaMalloc((uint8_t**)&Dev_O, numBytes);
+    cudaMalloc((float**)&Kernel, 3*3*sizeof(float));
     // Copiar datos desde el host en el device 
     cudaMemcpy(Dev_I, Host_I, numBytes, cudaMemcpyHostToDevice);
+    CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
+    cudaMemcpy(Dev_O, Host_O, numBytes, cudaMemcpyHostToDevice);
+    CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
+    cudaMemcpy(Kernel, KH, 9*sizeof(float), cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
         
     cudaEventRecord(E1, 0);
     cudaEventSynchronize(E1);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I, frames-2, Nfil * Ncol);
+	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I, Dev_O, Kernel, frames-2, Nfil * Ncol, 3);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
 
 	// Obtener el resultado desde el host
-	cudaMemcpy(Host_I, Dev_I, numBytes, cudaMemcpyDeviceToHost);
+	cudaMemcpy(Host_O, Dev_O, numBytes, cudaMemcpyDeviceToHost);
 	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
 
 	// Liberar Memoria del device 
 	cudaFree(Dev_I);
+	cudaFree(Dev_O);
+	cudaFree(Kernel);
     cudaEventRecord(E3, 0);
     cudaEventSynchronize(E3);
 
@@ -170,8 +198,8 @@ int main(int argc, char** argv)
     printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
     printf("Tiempo Kernel: %4.6f milseg\n", TiempoKernel);
     printf("Bandwidth: %4.6f GB/s\n", (float)(((float)(numBytes/TiempoKernel))/1000000));
-    printf("Rendimiento Global: %4.2f GFLOPS\n", (18.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoTotal));
-    printf("Rendimiento Kernel: %4.2f GFLOPS\n", (18.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoKernel));
+    printf("Rendimiento Global: %4.2f GFLOPS\n", (3.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoTotal));
+    printf("Rendimiento Kernel: %4.2f GFLOPS\n", (3.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoKernel));
 	cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
     printf("Writing...\n");
     char picname[300];
@@ -180,7 +208,7 @@ int main(int argc, char** argv)
         sprintf(picname, "thumb%d.jpg",i+1);
         char ruta [300];
         sprintf(ruta, "pics2/%s",picname);
-        stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I[i*Nfil * Ncol], Nfil);   //He cambiado out[] por Host_O[]
+        stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_O[i * Nfil * Ncol], Nfil);   //He cambiado out[] por Host_O[]
     }
     printf("\nRemoving residuals...\n");
     auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
