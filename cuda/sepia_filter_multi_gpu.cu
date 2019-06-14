@@ -158,26 +158,26 @@ int main(int argc, char** argv)
     cudaMemcpy(Dev_I1, Host_I1, numBytes, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I1, frames-2, Nfil * Ncol);
+	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I1, (frames-2)/4, Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 
     cudaSetDevice(1);
     cudaMemcpy(Dev_I2, Host_I2, numBytes, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I2, frames-2, Nfil * Ncol);
+	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I2, (frames-2)/4, Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
     cudaSetDevice(2);
     cudaMemcpy(Dev_I3, Host_I3, numBytes, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I3, frames-2, Nfil * Ncol);
+	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I3, (frames-2)/4, Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
     cudaSetDevice(3);
     cudaMemcpy(Dev_I4, Host_I4, numBytes, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I4, frames-2, Nfil * Ncol);
+	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I4, (frames-2)/4, Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
@@ -253,7 +253,6 @@ int main(int argc, char** argv)
     return 0;
     
 }
-
 void CheckCudaError(char sms[], int line) {
   cudaError_t error;
 
