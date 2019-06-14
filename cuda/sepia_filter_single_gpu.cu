@@ -19,13 +19,8 @@ void read_frames(uint8_t* frame, int size, int sizeFrame) {
 		sprintf(filename, "pics/thumb%d.jpg",i+1);
 		int width, height, bpp;
 		uint8_t* rgb_image = stbi_load(filename, &width, &height, &bpp, 3);
-        uint8_t he = height;
-        uint8_t wi = width;
-        frame[i*sizeFrame] = he;
-        frame[i*sizeFrame+1] = wi;
-        frame[i*sizeFrame+2] = bpp;
         for(int j = 0; j < height*width*3; ++j)
-        frame[i*sizeFrame+3+j] = rgb_image[j];
+            frame[i*sizeFrame+j] = rgb_image[j];
     }
 }
 
@@ -41,7 +36,7 @@ __global__ void KernelByN (int Nfil, int Ncol, uint8_t *A, int Nframes, int SzFr
     
     if(row < Nfil && col < Ncol){
         for (int i = 0; i < Nframes; ++i) {
-            int ind = (row * Ncol + col)*3 + i*SzFrame + 3;
+            int ind = (row * Ncol + col)*3 + i*SzFrame;
             int R = A[ind];
             int G = A[ind+1];
             int B = A[ind+2];
@@ -106,7 +101,7 @@ int main(int argc, char** argv)
 	printf("Leyendo %d fotogramas de %d x %d resolucion...\n",frames-2, Nfil, Ncol);
     Nfil = Nfil * 3;
 
-    numBytes = (frames-2) * (3 + Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
+    numBytes = (frames-2) * (Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
     //Podemos cargarnos la struct y considerar que los 3 primeros valores son height, width y bpp, y los (3*width*height) siguientes el data, todo eso por cada frame.
     //Cada frame ocupa 3*Nfil*Ncol uint8_t.
 
@@ -124,7 +119,7 @@ int main(int argc, char** argv)
         printf("Memory allocation failed\n");
         return;
     }
-    read_frames(Host_I, frames-2, 3 + Nfil * Ncol);
+    read_frames(Host_I, frames-2, Nfil * Ncol);
 
 	cudaEventCreate(&E0);	cudaEventCreate(&E1);
     cudaEventCreate(&E2);	cudaEventCreate(&E3);
@@ -137,7 +132,7 @@ int main(int argc, char** argv)
     nThreads = SIZE;
 
 	// numero de Blocks en cada dimension
-	int nBlocksFil = (Nfil/3+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
+	int nBlocksFil = (Nfil+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
 	int nBlocksCol = (Ncol+nThreads-1)/nThreads;
     
 
@@ -155,7 +150,7 @@ int main(int argc, char** argv)
     cudaEventRecord(E1, 0);
     cudaEventSynchronize(E1);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I, frames-2, 3 + Nfil * Ncol);
+	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I, frames-2, Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 
 	cudaEventRecord(E2, 0);
@@ -181,12 +176,13 @@ int main(int argc, char** argv)
     printf("Writing...\n");
     char picname[300];
     for (int i = 0; i < frames-2; ++i) {
-        printf("\rIn progress %d", i*100/(frames-2)); ///'size' no definido (solución: lo pongo en mayusculas, no se si es la variable a la que te querias referir)
+        printf("\rIn progress %d %", i*100/(frames-2)); ///'size' no definido (solución: lo pongo en mayusculas, no se si es la variable a la que te querias referir)
         sprintf(picname, "thumb%d.jpg",i+1);
         char ruta [300];
         sprintf(ruta, "pics2/%s",picname);
-        stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I[i*(3 + Nfil * Ncol)+3], Nfil);   //He cambiado out[] por Host_O[]
+        stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I[i*Nfil * Ncol], Nfil);   //He cambiado out[] por Host_O[]
     }
+    printf("\nRemoving residuals\n");
     auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
 	sprintf(comando, "%s -pattern_type glob -c:v libx264 -pix_fmt yuv420p %s_out_provisional.mp4",auxCommand, filename);
 	system(comando);
