@@ -13,8 +13,8 @@
 #define SIZE 32
 
 
-void read_frames(uint8_t* frame, int size, int sizeFrame) {
-	for (int i = 0; i < size; ++i) {
+void read_frames(uint8_t* frame, int ini, int size, int sizeFrame) {
+	for (int i = ini; i < size; ++i) {
 		char filename[300];
 		sprintf(filename, "pics/thumb%d.jpg",i+1);
 		int width, height, bpp;
@@ -23,6 +23,7 @@ void read_frames(uint8_t* frame, int size, int sizeFrame) {
             frame[i*sizeFrame+j] = rgb_image[j];
     }
 }
+
 
 ////////////////////  |
 ///CODIGO CUDA//////  |
@@ -58,10 +59,15 @@ int main(int argc, char** argv)
 
 	float TiempoTotal, TiempoKernel;
 	cudaEvent_t E0, E1, E2, E3;
-
-	uint8_t *Host_I;
-	uint8_t *Host_O;
-	uint8_t *Dev_I;
+    cudaEvent_t X1, X2, X3;
+	uint8_t *Host_I1;
+    uint8_t *Host_I2;
+    uint8_t *Host_I3;
+    uint8_t *Host_I4;
+	uint8_t *Dev_I1;
+	uint8_t *Dev_I2;
+	uint8_t *Dev_I3;
+	uint8_t *Dev_I4;
 
 	//Sacar los fotogramas del video usando FFMPEG
     char *filename = argv[1];
@@ -97,19 +103,14 @@ int main(int argc, char** argv)
 
     // Obtener Memoria en el host
     printf("Numero de bytes: %lu\n", numBytes);
-    Host_I = (uint8_t*) malloc(numBytes);
-    if(Host_I == NULL)
-    {
-        printf("Memory allocation failed\n");
-        return;
-    }
-    Host_O = (uint8_t*) malloc(numBytes);
-    if(Host_O == NULL)
-    {
-        printf("Memory allocation failed\n");
-        return;
-    }
-    read_frames(Host_I, frames-2, Nfil * Ncol);
+    cudaMallocHost((float**)&Host_I1,  numBytes/4); 
+    cudaMallocHost((float**)&Host_I2,  numBytes/4); 
+    cudaMallocHost((float**)&Host_I3,  numBytes/4); 
+    cudaMallocHost((float**)&Host_I4, numBytes/4); 
+    read_frames(Host_I1, 0, (frames-2)/4, Nfil * Ncol);
+    read_frames(Host_I2, (frames-2)/4, (frames-2)/2, Nfil * Ncol);
+    read_frames(Host_I3, (frames-2)/2, 3*(frames-2)/4, Nfil * Ncol);
+    read_frames(Host_I4, 3*(frames-2)/4, (frames-2), Nfil * Ncol);
 
 	cudaEventCreate(&E0);	cudaEventCreate(&E1);
     cudaEventCreate(&E2);	cudaEventCreate(&E3);
@@ -131,37 +132,88 @@ int main(int argc, char** argv)
     
     cudaEventRecord(E0, 0);
     cudaEventSynchronize(E0);
-    // Obtener Memoria en el device
-    cudaMalloc((uint8_t**)&Dev_I, numBytes);
+    // Obtener Memoria en el devicecudaMallocHost((float**)&hA0,  numBytesA); 
+    cudaSetDevice(0);
+    cudaMallocHost((float**)&Dev_I1,  numBytes/4); 
+    cudaSetDevice(1);
+    cudaMallocHost((float**)&Dev_I2,  numBytes/4); 
+    cudaEventCreate(&X1);
+    cudaSetDevice(2);
+    cudaMallocHost((float**)&Dev_I3,  numBytes/4);
+    cudaEventCreate(&X2);
+    cudaSetDevice(3); 
+    cudaMallocHost((float**)&Dev_I4, numBytes/4); 
+    cudaEventCreate(&X3);
     // Copiar datos desde el host en el device 
-    cudaMemcpy(Dev_I, Host_I, numBytes, cudaMemcpyHostToDevice);
+    cudaSetDevice(0);
+    cudaMemcpy(Dev_I1, Host_I1, numBytes, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
-        
-    cudaEventRecord(E1, 0);
-    cudaEventSynchronize(E1);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I, frames-2, Nfil * Ncol);
+	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I1, frames-2, Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 
+    cudaSetDevice(1);
+    cudaMemcpy(Dev_I2, Host_I2, numBytes, cudaMemcpyHostToDevice);
+    CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
+	// Ejecutar el kernel elemento a elemento
+	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I2, frames-2, Nfil * Ncol);
+	CheckCudaError((char *) "Invocar Kernel", __LINE__);
+    cudaSetDevice(2);
+    cudaMemcpy(Dev_I3, Host_I3, numBytes, cudaMemcpyHostToDevice);
+    CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
+	// Ejecutar el kernel elemento a elemento
+	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I3, frames-2, Nfil * Ncol);
+	CheckCudaError((char *) "Invocar Kernel", __LINE__);
+    cudaSetDevice(3);
+    cudaMemcpy(Dev_I4, Host_I4, numBytes, cudaMemcpyHostToDevice);
+    CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
+	// Ejecutar el kernel elemento a elemento
+	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I4, frames-2, Nfil * Ncol);
+	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
 
 	// Obtener el resultado desde el host
-	cudaMemcpy(Host_I, Dev_I, numBytes, cudaMemcpyDeviceToHost);
+	
+    cudaSetDevice(0);
+    // Obtener el resultado desde el host 
+    cudaMemcpyAsync(Host_I1, Dev_I1, numBytes/4, cudaMemcpyDeviceToHost);
+	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__); 
+
+    cudaSetDevice(1);
+    // Obtener el resultado desde el host 
+    cudaMemcpyAsync(Host_I2, Dev_I2, numBytes/4, cudaMemcpyDeviceToHost);
+	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__); 
+    cudaEventRecord(X1, 0);
+
+    cudaSetDevice(2);
+    // Obtener el resultado desde el host 
+    cudaMemcpyAsync(Host_I3, Dev_I3, numBytes/4, cudaMemcpyDeviceToHost); 
 	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
+    cudaEventRecord(X2, 0);
+
+    cudaSetDevice(3);
+    // Obtener el resultado desde el host 
+    cudaMemcpyAsync(Host_I4, Dev_I4, numBytes/4, cudaMemcpyDeviceToHost); 
+	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
+    cudaEventRecord(X3, 0);
 
 	// Liberar Memoria del device 
-	cudaFree(Dev_I);
     cudaEventRecord(E3, 0);
     cudaEventSynchronize(E3);
 
+    cudaSetDevice(0);
+    cudaEventSynchronize(X1);
+    cudaEventSynchronize(X2);
+    cudaEventSynchronize(X3);
+    cudaSetDevice(0); cudaFree(Dev_I1); 
+    cudaSetDevice(1); cudaFree(Dev_I2);
+    cudaSetDevice(2); cudaFree(Dev_I3);
+    cudaSetDevice(3); cudaFree(Dev_I4);
     cudaEventElapsedTime(&TiempoTotal,  E0, E3);
-    cudaEventElapsedTime(&TiempoKernel, E1, E2);
     printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
-    printf("Tiempo Kernel: %4.6f milseg\n", TiempoKernel);
-    printf("Bandwidth: %4.6f GB/s\n", (float)(((float)(numBytes/TiempoKernel))/1000000));
-    printf("Rendimiento Global: %4.2f GFLOPS\n", (3.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoTotal));
-    printf("Rendimiento Kernel: %4.2f GFLOPS\n", (3.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoKernel));
+    printf("Bandwidth: %4.6f GB/s\n", (float)(((float)(numBytes/TiempoTotal))/1000000));
+    printf("Rendimiento Global: %4.2f GFLOPS\n", (4.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoTotal));
 	cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
     printf("Writing...\n");
     char picname[300];
@@ -170,7 +222,14 @@ int main(int argc, char** argv)
         sprintf(picname, "thumb%d.jpg",i+1);
         char ruta [300];
         sprintf(ruta, "pics2/%s",picname);
-        stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I[i*Nfil * Ncol], Nfil);   //He cambiado out[] por Host_O[]
+        if (i < (frames-2)/4)
+            stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I1[i*Nfil * Ncol], Nfil);
+        if (i >= (frames-2)/4 && i < (frames-2)/2)
+            stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I2[i*Nfil * Ncol], Nfil);
+        if (i >= (frames-2)/2 && i < 3*(frames-2)/4)
+            stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I3[i*Nfil * Ncol], Nfil);
+        if (i >= 3*(frames-2)/4 && i < (frames-2))
+            stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I4[i*Nfil * Ncol], Nfil);
     }
     printf("\nRemoving residuals...\n");
     auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
