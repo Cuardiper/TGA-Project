@@ -24,39 +24,37 @@ void read_frames(uint8_t* frame, int size, int sizeFrame) {
     }
 }
 
-int max(int n1) {
-	return n1>255 ? 255 : n1;
-}
-
 
 ////////////////////  |
 ///CODIGO CUDA//////  |
 ///////////////////   v
 
-__global__ void KernelByN (int Nfil, int Ncol, uint8_t *Input, uint8_t *Output, float *kernel, int Nframes, int SzFrame, int szKernel) {
+__global__ void KernelByN (int Ncol, int Nfil, uint8_t *Input, uint8_t *Output, float *kernel, int Nframes, int SzFrame, int szKernel) {
 
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    int R,G,B;
+    int bx = blockIdx.x;  int by = blockIdx.y;
+    int tx = threadIdx.x; int ty = threadIdx.y;
+    int row = by * SIZE + ty;
+    int col = bx * SIZE + tx;
+    float R,G,B;
     if(row < Nfil && col < Ncol) {
         for (int i = 0; i < Nframes; ++i) {
-            int ind = (row * Ncol + col)*3 + i*SzFrame + 3;
-            R=G=B=0;
-            for (int m = 0; m < szKernel; ++m)			// kernel rows
+            int ind = (row * Ncol + col)*3 + i*SzFrame;
+            R=G=B=0.0;
+            for (int m = 0; m < szKernel; m++)			// kernel rows
             {
-
-                for (int n = 0; n < szKernel; ++n)		// kernel columns	
+                for (int n = 0; n < szKernel; n++)		// kernel columns	
                 {
 
                     // index of input signal used for checking boundary
-                    int ii = row + (1 - m);
-                    int jj = col + (1 - n);
+                    int ii = row - (1 - m);
+                    int jj = col - (1 - n);
                     
                     //ignore input samples which are out of bound
                     if(ii >= 0 && ii < Nfil && jj >= 0 && jj < Ncol){
-                        R += Input[i*SzFrame + 3 + (ii*Ncol + jj)*3] * kernel[m*szKernel+n];
-                        G += Input[i*SzFrame + 3 + (ii*Ncol + jj)*3+1] * kernel[m*szKernel+n];
-                        B += Input[i*SzFrame + 3 + (ii*Ncol + jj)*3+2] * kernel[m*szKernel+n];
+                        int index = (ii * Ncol + jj)*3 + i*SzFrame;
+                        R += (float)((float)Input[index] * kernel[m*szKernel+n]);
+                        G += (float)((float)Input[index+1] * kernel[m*szKernel+n]);
+                        B += (float)((float)Input[index+2] * kernel[m*szKernel+n]);
                     }
                 }
             }
@@ -84,8 +82,9 @@ int main(int argc, char** argv)
 
 	float TiempoTotal, TiempoKernel;
 	cudaEvent_t E0, E1, E2, E3;
-//     float KH[9] = {0,-1,0,-1,5,-1,0,-1,0};
-    float KH[3][3] = {{(float)1/16,(float)1/8,(float)1/16}, {(float)1/8,(float)1/4,(float)1/8}, {(float)1/16,(float)1/8,(float)1/16}};
+    float KH[9] = {0,-1,0,-1,5,-1,0,-1,0};
+//     float KH[9] = {0,0,0,0,1,0,0,0,0};
+//     float KH[3][3] = {{(float)1/16,(float)1/8,(float)1/16}, {(float)1/8,(float)1/4,(float)1/8}, {(float)1/16,(float)1/8,(float)1/16}};
 //     static float *KH = 
 	uint8_t *Host_I;
 	uint8_t *Host_O;
@@ -117,11 +116,10 @@ int main(int argc, char** argv)
 	}
 
     int bpp;
-    stbi_load("pics/thumb1.jpg", &Nfil, &Ncol, &bpp, 3);
-	printf("Leyendo %d fotogramas de %d x %d resolucion...\n",frames-2, Nfil, Ncol);
-    Nfil = Nfil * 3;
+    stbi_load("pics/thumb1.jpg", &Ncol, &Nfil, &bpp, 3);
+	printf("Leyendo %d fotogramas de %d x %d resolucion...\n",frames-2, Ncol, Nfil);
 
-    numBytes = (frames-2) * (Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
+    numBytes = (frames-2) * (Nfil * 3 * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
     //Podemos cargarnos la struct y considerar que los 3 primeros valores son height, width y bpp, y los (3*width*height) siguientes el data, todo eso por cada frame.
     //Cada frame ocupa 3*Nfil*Ncol uint8_t.
 
@@ -139,7 +137,7 @@ int main(int argc, char** argv)
         printf("Memory allocation failed\n");
         return;
     }
-    read_frames(Host_I, frames-2, 3 + Nfil * Ncol);
+    read_frames(Host_I, frames-2, Nfil * Ncol * 3);
 
 	cudaEventCreate(&E0);	cudaEventCreate(&E1);
     cudaEventCreate(&E2);	cudaEventCreate(&E3);
@@ -152,19 +150,19 @@ int main(int argc, char** argv)
     nThreads = SIZE;
 
 	// numero de Blocks en cada dimension
-	int nBlocksFil = (Nfil/3+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
-	int nBlocksCol = (Ncol*2+nThreads-1)/nThreads;
+	int nBlocksFil = (Nfil+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
+	int nBlocksCol = (Ncol+nThreads-1)/nThreads;
     
 
-	dim3 dimGridE(nBlocksCol, nBlocksFil, 1);
-	dim3 dimBlockE(nThreads, nThreads, 1);
+	dim3 dimGrid(nBlocksCol, nBlocksFil,1);
+	dim3 dimBlock(nThreads, nThreads, 1);
     
     cudaEventRecord(E0, 0);
     cudaEventSynchronize(E0);
     // Obtener Memoria en el device
     cudaMalloc((uint8_t**)&Dev_I, numBytes);
     cudaMalloc((uint8_t**)&Dev_O, numBytes);
-    cudaMalloc((float**)&Kernel, 3*3*sizeof(float));
+    cudaMalloc((float**)&Kernel, 9*sizeof(float));
     // Copiar datos desde el host en el device 
     cudaMemcpy(Dev_I, Host_I, numBytes, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
@@ -176,7 +174,8 @@ int main(int argc, char** argv)
     cudaEventRecord(E1, 0);
     cudaEventSynchronize(E1);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I, Dev_O, Kernel, frames-2, Nfil * Ncol, 3);
+    printf("Invocando Kernel\n");
+	KernelByN<<<dimGrid, dimBlock>>>(Ncol, Nfil, Dev_I, Dev_O, Kernel, frames-2, 3 * Nfil * Ncol, 3);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 
 	cudaEventRecord(E2, 0);
@@ -198,8 +197,8 @@ int main(int argc, char** argv)
     printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
     printf("Tiempo Kernel: %4.6f milseg\n", TiempoKernel);
     printf("Bandwidth: %4.6f GB/s\n", (float)(((float)(numBytes/TiempoKernel))/1000000));
-    printf("Rendimiento Global: %4.2f GFLOPS\n", (3.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoTotal));
-    printf("Rendimiento Kernel: %4.2f GFLOPS\n", (3.0 * (float) Nfil/3 * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoKernel));
+    printf("Rendimiento Global: %4.2f GFLOPS\n", (27.0 * (float) Nfil * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoTotal));
+    printf("Rendimiento Kernel: %4.2f GFLOPS\n", (27.0 * (float) Nfil * (float) Ncol * (float) (frames-2)) / (1000000.0 * TiempoKernel));
 	cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
     printf("Writing...\n");
     char picname[300];
@@ -208,7 +207,7 @@ int main(int argc, char** argv)
         sprintf(picname, "thumb%d.jpg",i+1);
         char ruta [300];
         sprintf(ruta, "pics2/%s",picname);
-        stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_O[i * Nfil * Ncol], Nfil);   //He cambiado out[] por Host_O[]
+        stbi_write_jpg(ruta, Ncol, Nfil, 3, &Host_O[i * 3 * Nfil * Ncol], Ncol);   //He cambiado out[] por Host_O[]
     }
     printf("\nRemoving residuals...\n");
     auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
