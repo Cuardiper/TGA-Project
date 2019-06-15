@@ -13,13 +13,14 @@
 #define SIZE 32
 
 
+
 void read_frames(uint8_t* frame, int ini, int size, int sizeFrame) {
 	for (int i = ini; i < size; ++i) {
 		char filename[300];
 		sprintf(filename, "pics/thumb%d.jpg",i+1);
 		int width, height, bpp;
 		uint8_t* rgb_image = stbi_load(filename, &width, &height, &bpp, 3);
-        for(int j = 0; j < height*width*3; ++j)
+        for(int j = 0; j < sizeFrame; ++j)
             frame[i*sizeFrame+j] = rgb_image[j];
     }
 }
@@ -29,7 +30,7 @@ void read_frames(uint8_t* frame, int ini, int size, int sizeFrame) {
 ///CODIGO CUDA//////  |
 ///////////////////   v
 
-__global__ void KernelByN (int Nfil, int Ncol, uint8_t *A, int Nframes, int SzFrame) {
+__global__ void KernelByN (int Ncol, int Nfil, uint8_t *A, int Nframes, int SzFrame) {
 
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -43,7 +44,6 @@ __global__ void KernelByN (int Nfil, int Ncol, uint8_t *A, int Nframes, int SzFr
 }
 
 void CheckCudaError(char sms[], int line);
-
 
 
 int main(int argc, char** argv)
@@ -93,11 +93,10 @@ int main(int argc, char** argv)
 	}
 
     int bpp;
-    stbi_load("pics/thumb1.jpg", &Nfil, &Ncol, &bpp, 3);
-	printf("Leyendo %d fotogramas de %d x %d resolucion...\n",frames-2, Nfil, Ncol);
-    Nfil = Nfil * 3;
+    stbi_load("pics/thumb1.jpg", &Ncol, &Nfil, &bpp, 3);
+	printf("Leyendo %d fotogramas de %d x %d resolucion...\n",frames-2, Ncol, Nfil);
 
-    numBytes = (frames-2) * (Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
+    numBytes = (frames-2) * (3 * Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
     //Podemos cargarnos la struct y considerar que los 3 primeros valores son height, width y bpp, y los (3*width*height) siguientes el data, todo eso por cada frame.
     //Cada frame ocupa 3*Nfil*Ncol uint8_t.
 
@@ -107,10 +106,10 @@ int main(int argc, char** argv)
     cudaMallocHost((float**)&Host_I2,  numBytes/4); 
     cudaMallocHost((float**)&Host_I3,  numBytes/4); 
     cudaMallocHost((float**)&Host_I4, numBytes/4); 
-    read_frames(Host_I1, 0, (frames-2)/4, Nfil * Ncol);
-    read_frames(Host_I2, (frames-2)/4, (frames-2)/2, Nfil * Ncol);
-    read_frames(Host_I3, (frames-2)/2, 3*(frames-2)/4, Nfil * Ncol);
-    read_frames(Host_I4, 3*(frames-2)/4, (frames-2), Nfil * Ncol);
+    read_frames(Host_I1, 0, (frames-2)/4, 3 * Nfil * Ncol);
+    read_frames(Host_I2, (frames-2)/4, (frames-2)/2, 3 * Nfil * Ncol);
+    read_frames(Host_I3, (frames-2)/2, 3*(frames-2)/4, 3 * Nfil * Ncol);
+    read_frames(Host_I4, 3*(frames-2)/4, (frames-2), 3 * Nfil * Ncol);
 
 	cudaEventCreate(&E0);	cudaEventCreate(&E1);
     cudaEventCreate(&E2);	cudaEventCreate(&E3);
@@ -123,8 +122,8 @@ int main(int argc, char** argv)
     nThreads = SIZE;
 
 	// numero de Blocks en cada dimension
-	int nBlocksFil = (Nfil/3+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
-	int nBlocksCol = (Ncol*2+nThreads-1)/nThreads;
+	int nBlocksFil = (Nfil+nThreads-1)/nThreads; //tener en cuenta 3componentes RGB??
+	int nBlocksCol = (Ncol+nThreads-1)/nThreads;
     
 
 	dim3 dimGridE(nBlocksFil, nBlocksCol, 1);
@@ -146,29 +145,29 @@ int main(int argc, char** argv)
     cudaEventCreate(&X3);
     // Copiar datos desde el host en el device 
     cudaSetDevice(0);
-    cudaMemcpy(Dev_I1, Host_I1, numBytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(Dev_I1, Host_I1, numBytes/4, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
-	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I1, (frames-2)/4, Nfil * Ncol);
+	// Ejecutar el kernel elemento a elemento	
+	KernelByN<<<dimGridE, dimBlockE>>>(Ncol, Nfil, Dev_I1, (frames-2)/4, 3 * Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 
     cudaSetDevice(1);
-    cudaMemcpy(Dev_I2, Host_I2, numBytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(Dev_I2, Host_I2, numBytes/4, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I2, (frames-2)/4, Nfil * Ncol);
+	KernelByN<<<dimGridE, dimBlockE>>>(Ncol, Nfil, Dev_I2, (frames-2)/4, 3 * Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
     cudaSetDevice(2);
-    cudaMemcpy(Dev_I3, Host_I3, numBytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(Dev_I3, Host_I3, numBytes/4, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I3, (frames-2)/4, Nfil * Ncol);
+	KernelByN<<<dimGridE, dimBlockE>>>(Ncol, Nfil, Dev_I3, (frames-2)/4, 3 * Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
     cudaSetDevice(3);
-    cudaMemcpy(Dev_I4, Host_I4, numBytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(Dev_I4, Host_I4, numBytes/4, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 	// Ejecutar el kernel elemento a elemento
-	KernelByN<<<dimGridE, dimBlockE>>>(Nfil/3, Ncol, Dev_I4, (frames-2)/4, Nfil * Ncol);
+	KernelByN<<<dimGridE, dimBlockE>>>(Ncol, Nfil, Dev_I4, (frames-2)/4, 3 * Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
@@ -225,11 +224,11 @@ int main(int argc, char** argv)
         if (i < (frames-2)/4)
             stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I1[i*Nfil * Ncol], Nfil);
         if (i >= (frames-2)/4 && i < (frames-2)/2)
-            stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I2[i*Nfil * Ncol], Nfil);
+            stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I2[(i-(frames-2)/4)*Nfil * Ncol], Nfil);
         if (i >= (frames-2)/2 && i < 3*(frames-2)/4)
-            stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I3[i*Nfil * Ncol], Nfil);
+            stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I3[(i-(frames-2)/2)*Nfil * Ncol], Nfil);
         if (i >= 3*(frames-2)/4 && i < (frames-2))
-            stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I4[i*Nfil * Ncol], Nfil);
+            stbi_write_jpg(ruta, Nfil/3, Ncol, 3, &Host_I4[(i-3*(frames-2)/4)*Nfil * Ncol], Nfil);
     }
     printf("\nRemoving residuals...\n");
     auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
