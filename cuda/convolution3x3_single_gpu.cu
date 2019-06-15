@@ -85,7 +85,8 @@ int main(int argc, char** argv)
 	float TiempoTotal, TiempoKernel;
 	cudaEvent_t E0, E1, E2, E3;
 //     float KH[9] = {0,-1,0,-1,5,-1,0,-1,0};
-    float KH[3][3] = {{(float)1/16,(float)1/8,(float)1/16}, {(float)1/8,(float)1/4,(float)1/8}, {(float)1/16,(float)1/8,(float)1/16}};
+    //float KH[3][3] = {{(float)1/16,(float)1/8,(float)1/16}, {(float)1/8,(float)1/4,(float)1/8}, {(float)1/16,(float)1/8,(float)1/16}};
+    float KH[3][3] = {{0,0,0}, {0,1,0}, {0,0,0}};
 //     static float *KH = 
 	uint8_t *Host_I;
 	uint8_t *Host_O;
@@ -139,7 +140,7 @@ int main(int argc, char** argv)
         printf("Memory allocation failed\n");
         return;
     }
-    read_frames(Host_I, frames-2, 3 + Nfil * Ncol);
+    read_frames(Host_I, frames-2, Nfil * Ncol);
 
 	cudaEventCreate(&E0);	cudaEventCreate(&E1);
     cudaEventCreate(&E2);	cudaEventCreate(&E3);
@@ -204,7 +205,7 @@ int main(int argc, char** argv)
     printf("Writing...\n");
     char picname[300];
     for (int i = 0; i < frames-2; ++i) {
-        printf("\rIn progress %d %", i*100/(frames-2)); ///'size' no definido (solución: lo pongo en mayusculas, no se si es la variable a la que te querias referir)
+        printf("\rIn progress %d %", i*100/(frames-2));
         sprintf(picname, "thumb%d.jpg",i+1);
         char ruta [300];
         sprintf(ruta, "pics2/%s",picname);
