@@ -25,23 +25,22 @@ struct Frame {
 };
 
 
-void read_frames(struct Frame* frame, int size) {
+void read_frames(uint8_t* data_in, int size, int sizeFrame) {
 	for (int i = 0; i < size; ++i) {
 		char filename[300];
 		sprintf(filename, "pics/thumb%d.jpg",i+1);
 		int width, height, bpp;
 		uint8_t* rgb_image = stbi_load(filename, &width, &height, &bpp, 3);
-		frame[i].data = rgb_image;
-		frame[i].width = width;
-		frame[i].height = height;
-		frame[i].bpp = bpp;
+        for(int j = 0; j < sizeFrame; ++j)
+            data_in[i*sizeFrame+j] = rgb_image[j];
 	}
 }
 
-void process_convolution(struct Frame* frame, uint8_t* data_out, int intensity){
-    int rows = frame->height;
-    int cols = frame->width;
-	for (int i = 0; i < intensity; i++) {
+void process_convolution(uint8_t* data, uint8_t* data_out, int intensity, int height, int width, int current){
+    int rows = height;
+    int cols = width;
+    int padding = width * height * 3 * current;
+	for (int k = 0; k < 1; k++) {
 //         printf("Intensity %d\n",i);
 		//find center position of kernel
 		int kCenterX = kCols / 2;
@@ -50,9 +49,9 @@ void process_convolution(struct Frame* frame, uint8_t* data_out, int intensity){
 		{
 			for (int j = 0; j < cols; ++j)				// columns
 			{
-                data_out[(i*cols+j)*3] = 0;
-                data_out[(i*cols+j)*3+1] = 0;
-				data_out[(i*cols+j)*3+2] = 0;
+                data_out[padding + (i*cols+j)*3] = 0;
+                data_out[padding + (i*cols+j)*3+1] = 0;
+				data_out[padding + (i*cols+j)*3+2] = 0;
 				for (int m = 0; m < kRows; ++m)			// kernel rows
 				{
 
@@ -66,9 +65,9 @@ void process_convolution(struct Frame* frame, uint8_t* data_out, int intensity){
 						//ignore input samples which are out of bound
 						if(ii >= 0 && ii < rows && jj >= 0 && jj < cols){
 
-							data_out[(i*cols+j)*3] += (*frame).data[(ii*cols + jj)*3] * kernel[m][n];
-							data_out[((i*cols+j)*3)+1] += (*frame).data[((ii*cols + jj)*3)+1] * kernel[m][n];
-							data_out[((i*cols+j)*3)+2] += (*frame).data[((ii*cols + jj)*3)+2] * kernel[m][n];
+							data_out[padding + (i*cols+j)*3] += data[width * height *3 * current + (ii*cols + jj)*3] * kernel[m][n];
+							data_out[padding + ((i*cols+j)*3)+1] += data[width * height *3 * current + ((ii*cols + jj)*3)+1] * kernel[m][n];
+							data_out[padding + ((i*cols+j)*3)+2] += data[width * height *3 * current + ((ii*cols + jj)*3)+2] * kernel[m][n];
 						}
 					}
 				}
@@ -78,14 +77,14 @@ void process_convolution(struct Frame* frame, uint8_t* data_out, int intensity){
 	}
 }
 
-void applyFilter(int size, struct Frame* frames, uint8_t* data_out) {
+void applyFilter(int size, int width, int height, uint8_t* data_in, uint8_t* data_out) {
 	printf("Aplicando filtro....\n");
 	char filename[300];
 	clock_t start, end;
 	start = clock();
 	int intensidad = 1;
 	for (int i = 0; i < size-1; ++i) {
-		process_convolution(&frames[i], &data_out[i*frames[i].width * frames[i].height * 3], intensidad);
+		process_convolution(data_in, data_out, intensidad, height, width, i);
 	}
 	end = clock();
 	printf("Tiempo total kernel secuencial: %f\n",((double) (end-start)/CLOCKS_PER_SEC));
@@ -95,7 +94,7 @@ void applyFilter(int size, struct Frame* frames, uint8_t* data_out) {
 		sprintf(filename, "thumb%d.jpg",i+1);
         char ruta [300];
         sprintf(ruta, "pics2/%s",filename);
-        stbi_write_jpg(ruta, frames[i].width, frames[i].height, 3, &data_out[i*frames[i].width * frames[i].height * 3], frames[i].width*3);
+        stbi_write_jpg(ruta, width, height, 3, &data_out[i*width * height * 3], width*3);
     }
 }
 
@@ -129,16 +128,20 @@ int main(int argc, char* argv[])
 	}
 	printf("Leyendo %d fotogramas...\n",frames-2);
 
-	struct Frame fotogramas[frames-2];
-	read_frames(&fotogramas[0],frames-1);
+	int width, height, bpp;
+	stbi_load("pics/thumb1.jpg", &width, &height, &bpp, 3);
+	uint8_t* data_in = malloc(width * height *3*sizeof(uint8_t) * frames-2);
+	read_frames(data_in, frames-2, 3 * width * height);
+
 	int intensidad = 6;
-    uint8_t* data_out = malloc(fotogramas[0].width * fotogramas[0].height *3*sizeof(uint8_t) * frames-2);
+    uint8_t* data_out = malloc(width * height *3*sizeof(uint8_t) * frames-2);
     if(data_out == NULL)
     {
         printf("Memory allocation failed\n");
         return -1;
     }
-	applyFilter(frames-2, &fotogramas[0], data_out);
+    applyFilter(frames-1, width, height, data_in, data_out);
+	//applyFilter(frames-1, &fotogramas[0], data_out);
 	auxCommand = "ffmpeg -framerate 25 -i pics2/thumb%d.jpg";
 	sprintf(comando, "%s -pattern_type glob -c:v libx264 -pix_fmt yuv420p %s_out_provisional.mp4",auxCommand, filename);
 	system(comando);
