@@ -6,7 +6,7 @@ LD_FLAGS    = -Wno-deprecated-gpu-targets -lcudart -Xlinker -rpath,$(CUDA_HOME)/
 PROG_FLAGS  = -DSIZE=32
 
 EXE01	        = bn1.exe
-OBJ01	        = bn1.0
+OBJ01	        = bn1.o
 EXE02	        = sepia1.exe
 OBJ02	        = sepia1.o
 EXE03	        = binarize1.exe
@@ -16,7 +16,7 @@ OBJ04	        = conv3x3_1.o
 EXE05	        = conv5x5_1.exe
 OBJ05	        = conv5x5_1.o
 EXE06	        = bn4.exe
-OBJ06	        = bn4.0
+OBJ06	        = bn4.o
 EXE07	        = sepia4.exe
 OBJ07	        = sepia4.o
 EXE08	        = binarize4.exe
@@ -35,14 +35,14 @@ $(OBJ01): bn_filter_single_gpu.cu
 $(OBJ02): sepia_filter_single_gpu.cu
 	$(NVCC) -c -o $@ sepia_filter_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
 
-$(OBJ03): bn_filter_single_gpu.cu
-	$(NVCC) -c -o $@ bn_filter_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+$(OBJ03): binarize_single_gpu.cu
+	$(NVCC) -c -o $@ binarize_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
 
-$(OBJ04): sepia_filter_single_gpu.cu
-	$(NVCC) -c -o $@ sepia_filter_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+$(OBJ04): convolution3x3_single_gpu.cu
+	$(NVCC) -c -o $@ convolution3x3_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
 
-$(OBJ05): bn_filter_single_gpu.cu
-	$(NVCC) -c -o $@ bn_filter_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+$(OBJ05): convolution5x5_single_gpu.cu
+	$(NVCC) -c -o $@ convolution5x5_single_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
 
 $(OBJ06): bn_filter_multi_gpu.cu
 	$(NVCC) -c -o $@ bn_filter_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
@@ -50,14 +50,14 @@ $(OBJ06): bn_filter_multi_gpu.cu
 $(OBJ07): sepia_filter_multi_gpu.cu
 	$(NVCC) -c -o $@ sepia_filter_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
 
-$(OBJ08): bn_filter_multi_gpu.cu
-	$(NVCC) -c -o $@ bn_filter_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+$(OBJ08): binarize_multi_gpuu.cu
+	$(NVCC) -c -o $@ binarize_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
 
-$(OBJ09): sepia_filter_multi_gpu.cu
-	$(NVCC) -c -o $@ sepia_filter_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+$(OBJ09): convolution3x3_multi_gpu.cu
+	$(NVCC) -c -o $@ convolution3x3_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
 
-$(OBJ10): bn_filter_multi_gpu.cu
-	$(NVCC) -c -o $@ bn_filter_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
+$(OBJ10): convolution5x5_multi_gpu.cu
+	$(NVCC) -c -o $@ convolution5x5_multi_gpu.cu $(NVCC_FLAGS) $(PROG_FLAGS)
 
 $(EXE01): $(OBJ01)
 	$(NVCC) $(OBJ01) -o $(EXE01) $(LD_FLAGS)
