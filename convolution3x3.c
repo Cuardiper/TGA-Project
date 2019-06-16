@@ -131,6 +131,11 @@ int main(int argc, char* argv[])
 	int width, height, bpp;
 	stbi_load("pics/thumb1.jpg", &width, &height, &bpp, 3);
 	uint8_t* data_in = malloc(width * height *3*sizeof(uint8_t) * frames-2);
+	if(data_in == NULL)
+    {
+        printf("Memory allocation failed\n");
+        return -1;
+    }
 	read_frames(data_in, frames-2, 3 * width * height);
 
 	int intensidad = 6;
