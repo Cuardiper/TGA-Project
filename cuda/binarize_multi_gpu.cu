@@ -19,8 +19,9 @@ void read_frames(uint8_t* frame, int ini, int size, int sizeFrame) {
 		sprintf(filename, "pics/thumb%d.jpg",i+1);
 		int width, height, bpp;
 		uint8_t* rgb_image = stbi_load(filename, &width, &height, &bpp, 3);
-        for(int j = 0; j < sizeFrame; ++j)
-            frame[i*sizeFrame+j] = rgb_image[j];
+        for(int j = 0; j < sizeFrame; ++j) {
+            frame[(i-ini)*sizeFrame+j] = rgb_image[j];
+        }
     }
 }
 
@@ -72,6 +73,7 @@ int main(int argc, char** argv)
 
 	//Sacar los fotogramas del video usando FFMPEG
     char *filename = argv[1];
+    printf("Welcome!\n\n\n");
 //     system("mkdir pics");
     system("mkdir pics2");
     char *auxCommand = "pics/thumb%d.jpg -hide_banner";
@@ -100,13 +102,21 @@ int main(int argc, char** argv)
     numBytes = (frames-2) * (3 * Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
     //Podemos cargarnos la struct y considerar que los 3 primeros valores son height, width y bpp, y los (3*width*height) siguientes el data, todo eso por cada frame.
     //Cada frame ocupa 3*Nfil*Ncol uint8_t.
+    int count;
+//     cudaGetDeviceCount(&count);
 
+    int sizeFrame = 3*Nfil*Ncol;
+    int numB1 = ((frames-2)/4+1) * sizeFrame;
+    int numB2 = ((frames-2)/2-(frames-2)/4+1) * sizeFrame;
+    int numB3 = (3*(frames-2)/4-(frames-2)/2+1) * sizeFrame;
+    int numB4 = ((frames-2)-3*(frames-2)/4+1) * sizeFrame;
+//     if (count < 4) { printf("No hay suficientes GPUs\n"); exit(0); }
     // Obtener Memoria en el host
     printf("Numero de bytes: %lu\n", numBytes);
-    cudaMallocHost((float**)&Host_I1,  numBytes/4); 
-    cudaMallocHost((float**)&Host_I2,  numBytes/4); 
-    cudaMallocHost((float**)&Host_I3,  numBytes/4); 
-    cudaMallocHost((float**)&Host_I4, numBytes/4); 
+    cudaMallocHost((uint8_t**)&Host_I1,  numB1); 
+    cudaMallocHost((uint8_t**)&Host_I2,  numB2); 
+    cudaMallocHost((uint8_t**)&Host_I3,  numB3); 
+    cudaMallocHost((uint8_t**)&Host_I4, numB4); 
     read_frames(Host_I1, 0, (frames-2)/4, 3 * Nfil * Ncol);
     read_frames(Host_I2, (frames-2)/4, (frames-2)/2, 3 * Nfil * Ncol);
     read_frames(Host_I3, (frames-2)/2, 3*(frames-2)/4, 3 * Nfil * Ncol);
@@ -134,38 +144,38 @@ int main(int argc, char** argv)
     cudaEventSynchronize(E0);
     // Obtener Memoria en el devicecudaMallocHost((float**)&hA0,  numBytesA); 
     cudaSetDevice(0);
-    cudaMallocHost((float**)&Dev_I1,  numBytes/4); 
+    cudaMalloc((uint8_t**)&Dev_I1,  numB1); 
     cudaSetDevice(1);
-    cudaMallocHost((float**)&Dev_I2,  numBytes/4); 
+    cudaMalloc((uint8_t**)&Dev_I2,  numB2); 
     cudaEventCreate(&X1);
     cudaSetDevice(2);
-    cudaMallocHost((float**)&Dev_I3,  numBytes/4);
+    cudaMalloc((uint8_t**)&Dev_I3,  numB3);
     cudaEventCreate(&X2);
     cudaSetDevice(3); 
-    cudaMallocHost((float**)&Dev_I4, numBytes/4); 
+    cudaMalloc((uint8_t**)&Dev_I4, numB4); 
     cudaEventCreate(&X3);
     // Copiar datos desde el host en el device 
     cudaSetDevice(0);
-    cudaMemcpy(Dev_I1, Host_I1, numBytes/4, cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(Dev_I1, Host_I1, numB1, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 	// Ejecutar el kernel elemento a elemento	
 	KernelByN<<<dimGridE, dimBlockE>>>(Ncol, Nfil, Dev_I1, (frames-2)/4, 3 * Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 
     cudaSetDevice(1);
-    cudaMemcpy(Dev_I2, Host_I2, numBytes/4, cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(Dev_I2, Host_I2, numB2, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 	// Ejecutar el kernel elemento a elemento
 	KernelByN<<<dimGridE, dimBlockE>>>(Ncol, Nfil, Dev_I2, (frames-2)/4, 3 * Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
     cudaSetDevice(2);
-    cudaMemcpy(Dev_I3, Host_I3, numBytes/4, cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(Dev_I3, Host_I3, numB3, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 	// Ejecutar el kernel elemento a elemento
 	KernelByN<<<dimGridE, dimBlockE>>>(Ncol, Nfil, Dev_I3, (frames-2)/4, 3 * Nfil * Ncol);
 	CheckCudaError((char *) "Invocar Kernel", __LINE__);
     cudaSetDevice(3);
-    cudaMemcpy(Dev_I4, Host_I4, numBytes/4, cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(Dev_I4, Host_I4, numB4, cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 	// Ejecutar el kernel elemento a elemento
 	KernelByN<<<dimGridE, dimBlockE>>>(Ncol, Nfil, Dev_I4, (frames-2)/4, 3 * Nfil * Ncol);
@@ -177,24 +187,24 @@ int main(int argc, char** argv)
 	
     cudaSetDevice(0);
     // Obtener el resultado desde el host 
-    cudaMemcpyAsync(Host_I1, Dev_I1, numBytes/4, cudaMemcpyDeviceToHost);
+    cudaMemcpyAsync(Host_I1, Dev_I1, numB1, cudaMemcpyDeviceToHost);
 	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__); 
 
     cudaSetDevice(1);
     // Obtener el resultado desde el host 
-    cudaMemcpyAsync(Host_I2, Dev_I2, numBytes/4, cudaMemcpyDeviceToHost);
+    cudaMemcpyAsync(Host_I2, Dev_I2, numB2, cudaMemcpyDeviceToHost);
 	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__); 
     cudaEventRecord(X1, 0);
 
     cudaSetDevice(2);
     // Obtener el resultado desde el host 
-    cudaMemcpyAsync(Host_I3, Dev_I3, numBytes/4, cudaMemcpyDeviceToHost); 
+    cudaMemcpyAsync(Host_I3, Dev_I3, numB3, cudaMemcpyDeviceToHost); 
 	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
     cudaEventRecord(X2, 0);
 
     cudaSetDevice(3);
     // Obtener el resultado desde el host 
-    cudaMemcpyAsync(Host_I4, Dev_I4, numBytes/4, cudaMemcpyDeviceToHost); 
+    cudaMemcpyAsync(Host_I4, Dev_I4, numB4, cudaMemcpyDeviceToHost); 
 	CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
     cudaEventRecord(X3, 0);
 
@@ -203,13 +213,16 @@ int main(int argc, char** argv)
     cudaEventSynchronize(E3);
 
     cudaSetDevice(0);
+    
     cudaEventSynchronize(X1);
     cudaEventSynchronize(X2);
     cudaEventSynchronize(X3);
     cudaSetDevice(0); cudaFree(Dev_I1); 
     cudaSetDevice(1); cudaFree(Dev_I2);
+    
     cudaSetDevice(2); cudaFree(Dev_I3);
     cudaSetDevice(3); cudaFree(Dev_I4);
+    
     cudaEventElapsedTime(&TiempoTotal,  E0, E3);
     printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
     printf("Bandwidth: %4.6f GB/s\n", (float)(((float)(numBytes/TiempoTotal))/1000000));

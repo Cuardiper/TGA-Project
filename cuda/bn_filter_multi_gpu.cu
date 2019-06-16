@@ -71,12 +71,12 @@ int main(int argc, char** argv)
 
 	//Sacar los fotogramas del video usando FFMPEG
     char *filename = argv[1];
-//     system("mkdir pics");
+    system("mkdir pics");
     system("mkdir pics2");
     char *auxCommand = "pics/thumb%d.jpg -hide_banner";
     char comando[300];
     sprintf(comando, "ffmpeg -i %s.mp4 %s",filename,auxCommand);
-//     system(comando);
+    system(comando);
     sprintf(comando,"ffmpeg -i %s.mp4 -vn -acodec copy audio.aac",filename);
     system(comando);
 
@@ -99,13 +99,16 @@ int main(int argc, char** argv)
     numBytes = (frames-2) * (3 * Nfil * Ncol) * sizeof(uint8_t); //Guardamos 3 uint8_t (height, width i bpp) + un uint8_t por cada color (3*width*height)
     //Podemos cargarnos la struct y considerar que los 3 primeros valores son height, width y bpp, y los (3*width*height) siguientes el data, todo eso por cada frame.
     //Cada frame ocupa 3*Nfil*Ncol uint8_t.
+    int count;
+    cudaGetDeviceCount(&count);
 
+    if (count < 4) { printf("No hay suficientes GPUs\n"); exit(0); }
     // Obtener Memoria en el host
     printf("Numero de bytes: %lu\n", numBytes);
-    cudaMallocHost((float**)&Host_I1,  numBytes/4); 
-    cudaMallocHost((float**)&Host_I2,  numBytes/4); 
-    cudaMallocHost((float**)&Host_I3,  numBytes/4); 
-    cudaMallocHost((float**)&Host_I4, numBytes/4); 
+    cudaMallocHost((uint8_t**)&Host_I1,  numBytes/4); 
+    cudaMallocHost((uint8_t**)&Host_I2,  numBytes/4); 
+    cudaMallocHost((uint8_t**)&Host_I3,  numBytes/4); 
+    cudaMallocHost((uint8_t**)&Host_I4, numBytes/4); 
     read_frames(Host_I1, 0, (frames-2)/4, 3 * Nfil * Ncol);
     read_frames(Host_I2, (frames-2)/4, (frames-2)/2, 3 * Nfil * Ncol);
     read_frames(Host_I3, (frames-2)/2, 3*(frames-2)/4, 3 * Nfil * Ncol);
@@ -133,15 +136,15 @@ int main(int argc, char** argv)
     cudaEventSynchronize(E0);
     // Obtener Memoria en el devicecudaMallocHost((float**)&hA0,  numBytesA); 
     cudaSetDevice(0);
-    cudaMallocHost((float**)&Dev_I1,  numBytes/4); 
+    cudaMallocHost((uint8_t**)&Dev_I1,  numBytes/4); 
     cudaSetDevice(1);
-    cudaMallocHost((float**)&Dev_I2,  numBytes/4); 
+    cudaMallocHost((uint8_t**)&Dev_I2,  numBytes/4); 
     cudaEventCreate(&X1);
     cudaSetDevice(2);
-    cudaMallocHost((float**)&Dev_I3,  numBytes/4);
+    cudaMallocHost((uint8_t**)&Dev_I3,  numBytes/4);
     cudaEventCreate(&X2);
     cudaSetDevice(3); 
-    cudaMallocHost((float**)&Dev_I4, numBytes/4); 
+    cudaMallocHost((uint8_t**)&Dev_I4, numBytes/4); 
     cudaEventCreate(&X3);
     // Copiar datos desde el host en el device 
     cudaSetDevice(0);
